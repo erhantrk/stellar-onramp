@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onramp — Prove the claim, not the document</title>
+<meta name="description" content="KYC-verified onboarding on Stellar. A BBS+ credential with twelve attributes and no PII, verified once on chain and cached in 492 bytes. The date of birth is not in the proof, and it is not in the credential either.">
+<meta property="og:title" content="Onramp — Prove the claim, not the document">
+<meta property="og:description" content="Twelve attributes. Zero PII fields. One boolean disclosed.">
+<meta name="theme-color" content="#0d1013">
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="%230d1013"/><rect x="6" y="14" width="20" height="3" fill="%238e2a3a"/><rect x="6" y="7" width="20" height="3" fill="%232a3138"/><rect x="6" y="11" width="20" height="3" fill="%231f252b"/><rect x="6" y="18" width="20" height="3" fill="%231f252b"/><rect x="6" y="22" width="20" height="3" fill="%232a3138"/></svg>'>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#0d1013;
+  --deep:#14181c;
+  --card:#171c21;
+  --line:#2a3138;
+  --hair:rgba(255,255,255,.045);
+
+  --accent-deep:#4d1620;
+  --accent:#8e2a3a;
+  --accent-text:#b8485a;
+  --accent-soft:#d18c97;
+  --onaccent:#f1eee9;
+  --seal:color-mix(in srgb, var(--accent) 34%, #0f1216);
+  --well:#262d36;
+
+  --ivory:#f1eee9;
+  --slate:#9aa3ad;
+  --dim:#5f6873;
+
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --sans:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono',monospace;
+
+  --gut:clamp(20px,4.4vw,48px);
+  --maxw:1140px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--void);color:var(--slate);
+  font-family:var(--sans);font-size:16px;line-height:1.7;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+h1,h2,h3{font-family:var(--serif);color:var(--ivory);font-weight:400;margin:0;letter-spacing:-.015em}
+p{margin:0}
+a{color:inherit}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 var(--gut)}
+.mono{font-family:var(--mono)}
+
+/* ————— header ————— */
+.hdr{
+  position:fixed;top:0;left:0;right:0;z-index:80;
+  transition:background .4s ease,border-color .4s ease,backdrop-filter .4s ease;
+  border-bottom:1px solid transparent;
+}
+.hdr.solid{background:rgba(13,16,19,.86);backdrop-filter:blur(14px);border-bottom-color:var(--line)}
+.hdr .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.lock{display:flex;align-items:center;gap:10px;text-decoration:none}
+.lock b{font-family:var(--serif);font-size:17px;font-weight:600;color:var(--ivory)}
+.nav{display:flex;align-items:center;gap:26px}
+.nav a:not(.btn){
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);text-decoration:none;transition:color .2s ease;
+}
+.nav a:not(.btn):hover{color:var(--ivory)}
+.btn{
+  display:inline-flex;align-items:center;gap:9px;text-decoration:none;cursor:pointer;
+  font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;
+  padding:11px 18px;border:1px solid transparent;
+  transition:background .22s ease,color .22s ease,border-color .22s ease;
+}
+.btn-a{background:var(--accent);color:var(--onaccent);border-color:var(--accent)}
+.btn-a:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
+.btn-g{color:var(--ivory);border-color:var(--line)}
+.btn-g:hover{border-color:var(--dim)}
+
+/* ————— intro ————— */
+.intro{padding:clamp(130px,22vh,240px) 0 clamp(90px,16vh,170px)}
+.intro h1{font-size:clamp(36px,6.6vw,86px);line-height:1.04;letter-spacing:-.032em;max-width:16ch}
+.intro h1 em{font-style:italic;color:var(--accent-soft)}
+.intro p{margin-top:clamp(34px,5vh,52px);max-width:52ch;font-size:clamp(16px,1.5vw,18.5px)}
+.intro p b{color:var(--ivory);font-weight:500}
+.intro .scroll{margin-top:clamp(48px,8vh,84px);font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+
+/* ————— the reels ————— */
+.reel{position:relative}
+.stage{
+  position:sticky;top:0;height:100vh;overflow:hidden;
+  display:grid;
+  grid-template-rows:auto auto minmax(0,1fr) auto;
+  justify-items:center;align-items:center;
+  padding:72px var(--gut) clamp(20px,3.2vh,38px);
+  gap:clamp(6px,1.4vh,20px);
+}
+.stage::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 85% 62% at 50% 47%, transparent 0%, rgba(13,16,19,.9) 100%),
+    repeating-linear-gradient(0deg,transparent 0 89px,var(--hair) 89px 90px),
+    repeating-linear-gradient(90deg,transparent 0 89px,var(--hair) 89px 90px);
+}
+.reel[data-reel="a"]{height:420vh}
+.reel[data-reel="b"]{height:440vh}
+.reel[data-reel="c"]{height:400vh}
+.reel[data-reel="d"]{height:380vh}
+.doc,.cred,.gate,.sig{grid-row:3;justify-self:center;align-self:center;max-height:100%}
+
+/* stage furniture */
+.rail{position:absolute;z-index:5;left:clamp(16px,3vw,40px);top:50%;transform:translateY(-50%);width:1px;height:34vh;background:var(--line)}
+.rail i{position:absolute;left:-1px;top:0;width:3px;height:0;background:var(--accent)}
+.act{
+  grid-row:1;justify-self:start;z-index:5;
+  font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);
+}
+.counter{
+  grid-row:1;justify-self:end;z-index:5;text-align:right;white-space:nowrap;
+  font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);
+}
+.counter b{display:inline-block;font-family:var(--serif);font-size:14px;font-weight:400;color:var(--accent-soft);letter-spacing:0;margin-right:4px}
+
+/* text beats */
+.beat{
+  z-index:4;grid-row:2;width:min(780px,88vw);text-align:center;
+  opacity:0;transform:translateY(14px);
+  transition:opacity .55s ease,transform .55s cubic-bezier(.16,1,.3,1);
+}
+.beat.on{opacity:1;transform:translateY(0)}
+.beat.low{grid-row:4}
+.beat h2{font-size:clamp(25px,3.5vw,45px);line-height:1.14;letter-spacing:-.022em}
+.beat h2 em{font-style:italic;color:var(--accent-soft)}
+.beat p{margin-top:13px;font-size:clamp(13.5px,1.15vw,15.5px);color:var(--slate)}
+
+/* ————— act a · the document ————— */
+.doc{
+  position:relative;z-index:2;width:min(580px,86vw);
+  background:var(--card);border:1px solid var(--line);
+  box-shadow:0 44px 130px rgba(0,0,0,.62);
+  transition:transform .15s linear,filter .5s ease;
+}
+.doc-hd{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:13px 18px;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+}
+.doc-hd .t{color:var(--dim)}
+.doc-hd .s{color:var(--accent-text)}
+.f{
+  display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center;
+  padding:9px 18px;font-family:var(--mono);font-size:12.5px;
+  border-bottom:1px solid var(--hair);
+}
+.f:last-child{border-bottom:0}
+.f .k{color:var(--dim);transition:color .5s ease}
+.f .v{position:relative;color:var(--ivory);transition:color .5s ease}
+.f .v::after{
+  content:'';position:absolute;inset:-1px 0;background:var(--seal);
+  border-left:2px solid var(--accent);
+  transform:scaleX(0);transform-origin:left;
+  transition:transform .5s cubic-bezier(.6,0,.3,1);
+}
+.f.on .k{color:#3d444c}
+.f.on .v{color:transparent}
+.f.on .v::after{transform:scaleX(1)}
+.f.keep{background:color-mix(in srgb, var(--accent) 9%, transparent)}
+.f.keep .k{color:var(--ivory)}
+.f.keep .v{color:var(--accent-soft)}
+.doc-ft{
+  display:flex;justify-content:space-between;gap:12px;padding:12px 18px;border-top:1px solid var(--line);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);
+}
+
+/* ————— act b · the credential ————— */
+.cred{
+  position:relative;z-index:2;width:min(600px,88vw);
+  background:var(--card);border:1px solid var(--line);
+  box-shadow:0 44px 130px rgba(0,0,0,.62);
+}
+.cred-hd{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:13px 18px;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+}
+.cred-hd .t{color:var(--dim)}
+.cred-hd .s{color:var(--accent-text)}
+.a{
+  display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;
+  padding:7.5px 18px;border-bottom:1px solid var(--hair);
+  font-family:var(--mono);font-size:12px;
+}
+.a:last-child{border-bottom:0}
+.a .k{color:var(--dim);transition:color .45s ease}
+.a .v{position:relative;min-width:82px;text-align:right;color:var(--dim);transition:color .45s ease}
+.a .v::after{
+  content:'';position:absolute;inset:1px 0;background:var(--seal);
+  border-left:2px solid var(--accent);transform:scaleX(0);transform-origin:right;
+  transition:transform .45s cubic-bezier(.6,0,.3,1);
+}
+.a.on .v{color:transparent}
+.a.on .v::after{transform:scaleX(1)}
+.a.keep{background:color-mix(in srgb, var(--accent) 10%, transparent)}
+.a.keep .k{color:var(--ivory)}
+.a.keep .v{color:var(--accent-soft);font-weight:500}
+.a.keep .v::after{display:none}
+.cred-ft{display:flex;flex-wrap:wrap;gap:8px 14px;padding:13px 18px;border-top:1px solid var(--line);font-family:var(--mono);font-size:10px;letter-spacing:.06em}
+.pill{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border:1px solid var(--line);color:var(--dim)}
+.pill.on{border-color:var(--accent);color:var(--accent-soft)}
+.cred-ft .scan{margin-left:auto;color:var(--dim)}
+
+/* ————— act c · the gate ————— */
+.gate{
+  position:relative;z-index:2;width:min(560px,90vw);
+  display:grid;grid-template-columns:1fr;gap:1px;
+  background:var(--line);border:1px solid var(--line);
+}
+.lane{background:var(--card);padding:clamp(18px,2.4vw,26px)}
+.lane h3{font-size:17px;margin-bottom:2px}
+.lane .fn{font-family:var(--mono);font-size:10.5px;color:var(--accent-text);letter-spacing:.04em;margin-bottom:20px}
+.bar{height:6px;background:var(--well);margin:9px 0 7px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .9s cubic-bezier(.2,.7,.2,1)}
+.lane .num{font-family:var(--mono);font-size:12.5px;color:var(--ivory)}
+.lane .lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim)}
+.lane .dl{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;margin:20px 0 0;font-size:12.5px}
+.lane .dl dt{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);padding-top:2px}
+.lane .dl dd{margin:0;font-family:var(--mono);font-size:12px;color:var(--ivory)}
+.gate-ft{
+  grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:9px 14px;
+  background:var(--card);padding:13px 18px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;color:var(--dim);
+  opacity:0;transition:opacity .5s ease;
+}
+.gate-ft.on{opacity:1}
+.gate-ft .lbl{letter-spacing:.14em;text-transform:uppercase}
+.gate-ft .blk{width:clamp(90px,16vw,180px);height:8px;background:var(--well);overflow:hidden}
+.gate-ft .blk i{display:block;height:100%;width:0;background:var(--accent);transition:width 1s cubic-bezier(.2,.7,.2,1)}
+.gate-ft b{color:var(--accent-soft)}
+
+/* ————— act d · revocation ————— */
+.sig{
+  position:relative;z-index:2;width:min(620px,88vw);
+  background:var(--card);border:1px solid var(--line);
+  box-shadow:0 44px 130px rgba(0,0,0,.62);
+}
+.sig-hd{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:13px 18px;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+}
+.sig-hd .t{color:var(--dim)}
+.sig-hd .s{color:var(--accent-text)}
+.sig-b{padding:6px 0}
+.sr{display:grid;grid-template-columns:150px 1fr;gap:16px;padding:8px 18px;font-family:var(--mono);font-size:12.5px;border-bottom:1px solid var(--hair)}
+.sr:last-child{border-bottom:0}
+.sr .k{color:var(--dim)}
+.sr .v{color:var(--ivory)}
+#epoch{color:var(--accent-soft);font-weight:500}
+.sig.locked .v{color:var(--dim)}
+.sig.locked .v.dead{color:var(--accent-soft);text-decoration:line-through;text-decoration-thickness:1px}
+.tomb{
+  position:absolute;z-index:4;top:-38px;right:0;transform:scale(.94);
+  padding:9px 17px;background:var(--accent);color:var(--onaccent);
+  font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+  opacity:0;transition:opacity .45s ease,transform .45s cubic-bezier(.16,1,.3,1);
+}
+.tomb.on{opacity:1;transform:scale(1)}
+
+/* ————— facts half ————— */
+.facts{padding:clamp(70px,11vh,120px) 0;border-top:1px solid var(--line)}
+.facts .wrap{display:grid;grid-template-columns:110px 1fr;gap:clamp(18px,3vw,40px);align-items:start}
+.facts .wrap>*{min-width:0}
+.fnum{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;color:var(--accent-text);padding-top:8px}
+.facts h2{font-size:clamp(22px,2.5vw,30px);line-height:1.2;margin-bottom:14px}
+.facts .lead{max-width:62ch;margin-bottom:clamp(26px,4vh,40px)}
+.facts .lead b{color:var(--ivory);font-weight:500}
+@media (max-width:860px){
+  .facts .wrap{grid-template-columns:1fr;gap:10px}
+}
+
+.tscroll{overflow-x:auto;max-width:100%}
+.tscroll table{min-width:540px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--hair);vertical-align:top}
+thead th{
+  font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--dim);border-bottom-color:var(--line);white-space:nowrap;
+}
+td.n{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+td strong{color:var(--ivory);font-weight:500}
+.tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+.tag.a{border-color:var(--accent);color:var(--accent-soft)}
+.tag.ok{border-color:rgba(95,158,115,.45);color:#7fbb92}
+
+.figs{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:clamp(26px,4vh,38px)}
+.fig{background:var(--deep);padding:20px 18px}
+.fig .v{font-family:var(--serif);font-size:clamp(22px,2.5vw,30px);color:var(--ivory);line-height:1.1;margin-bottom:6px;letter-spacing:-.02em}
+.fig .v small{font-family:var(--mono);font-size:11px;color:var(--dim);margin-left:4px}
+.fig .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);line-height:1.7}
+@media (max-width:700px){.figs{grid-template-columns:1fr}}
+
+.ctr{display:grid;gap:1px;background:var(--line);border:1px solid var(--line)}
+.ctr a{display:grid;grid-template-columns:170px 1fr auto;gap:16px;align-items:center;padding:15px 18px;background:var(--deep);text-decoration:none;transition:background .2s ease}
+.ctr a:hover{background:var(--card)}
+.ctr .nm{font-family:var(--serif);font-size:16px;color:var(--ivory)}
+.ctr .id{font-family:var(--mono);font-size:11.5px;color:var(--dim);overflow-wrap:anywhere}
+.ctr .go{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-text);white-space:nowrap}
+@media (max-width:820px){.ctr a{grid-template-columns:1fr;gap:6px}}
+
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:clamp(24px,3.4vw,48px)}
+.cols>*{min-width:0}
+@media (max-width:820px){.cols{grid-template-columns:1fr}}
+.cols h3{font-size:16.5px;margin-bottom:12px}
+ul.tick{list-style:none;margin:0;padding:0}
+ul.tick li{position:relative;padding-left:20px;margin-bottom:10px;font-size:14.5px}
+ul.tick li::before{content:'';position:absolute;left:0;top:11px;width:9px;height:1px;background:var(--accent)}
+ul.tick li b{color:var(--ivory);font-weight:500}
+.code{
+  font-family:var(--mono);font-size:12.5px;background:var(--deep);border:1px solid var(--line);
+  padding:16px 18px;color:var(--ivory);overflow-x:auto;white-space:pre;line-height:1.8;max-width:100%;
+}
+.code .c{color:var(--dim)}
+.callout{border-left:2px solid var(--accent);background:var(--deep);padding:16px 20px;font-size:14.5px}
+.callout b{color:var(--ivory);font-weight:500}
+
+/* close */
+.close{padding:clamp(80px,14vh,150px) 0;border-top:1px solid var(--line);text-align:center}
+.close h2{font-size:clamp(26px,4vw,48px);line-height:1.14;letter-spacing:-.026em;max-width:22ch;margin:0 auto 26px}
+.close p{max-width:56ch;margin:0 auto}
+.close .ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:36px}
+footer{border-top:1px solid var(--line);padding:40px 0}
+footer .wrap{display:flex;flex-wrap:wrap;gap:16px 30px;justify-content:space-between;align-items:baseline}
+footer .l{font-family:var(--serif);font-size:15px;color:var(--ivory)}
+footer .l span{font-family:var(--sans);font-size:12.5px;color:var(--dim);margin-left:10px}
+footer .r{display:flex;flex-wrap:wrap;gap:20px}
+footer .r a{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none}
+footer .r a:hover{color:var(--ivory)}
+
+:focus-visible{outline:2px solid var(--accent-soft);outline-offset:3px}
+.rv{opacity:0;transform:translateY(14px);transition:opacity .7s ease,transform .7s cubic-bezier(.16,1,.3,1)}
+.rv.in{opacity:1;transform:none}
+
+@media (max-height:940px){
+  .beat h2{font-size:clamp(19px,2.4vw,28px)}
+  .beat p{font-size:12.5px;margin-top:9px}
+  .f,.a{padding:5px 16px;font-size:11px}
+  .sr{padding:6px 16px;font-size:11.5px}
+  .cred-ft,.doc-ft{padding:9px 16px;font-size:9px}
+  .lane{padding:16px 18px}
+  .lane .fn{margin-bottom:12px}
+  .lane .dl{margin-top:12px;gap:5px 12px}
+  .stage{padding-top:70px}
+  .cred,.doc,.sig{width:min(560px,86vw)}
+}
+@media (max-height:720px){
+  .beat p{display:none}
+  .f,.a,.sr{padding:4px 14px;font-size:10px}
+  .cred-ft,.doc-ft{padding:7px 14px;font-size:8.5px}
+  .lane{padding:12px 15px}
+  .lane h3{font-size:15px}
+  .stage{padding-top:66px;gap:4px}
+  .counter b{font-size:13px}
+}
+@media (max-width:900px){
+  .nav a:not(.btn){display:none}
+  .rail,.act{display:none}
+  .lane{padding:15px 16px}
+  .lane .fn{margin-bottom:11px}
+}
+@media (max-width:700px){
+  .f,.sr{grid-template-columns:110px 1fr;gap:12px;font-size:11.5px}
+  table{font-size:13px}
+  th,td{padding:10px 8px}
+  thead th{white-space:normal}
+  td.n,.tag{white-space:normal}
+  .counter{font-size:9px}
+  .lane{padding:11px 12px}
+  .lane h3{font-size:14.5px}
+  .lane .fn{font-size:9.5px;margin-bottom:9px}
+  .lane .lbl{font-size:8.5px}
+  .lane .num{font-size:10.5px}
+  .lane .dl{display:none}
+  .bar{height:5px;margin:6px 0 5px}
+  .gate-ft{padding:9px 12px;font-size:9px;gap:6px 10px}
+  .gate-ft .blk{width:56px;height:6px}
+  .f,.a{padding:4px 12px;font-size:10.5px}
+  .cred-ft,.doc-ft{padding:8px 12px;font-size:8.5px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+  .rv{opacity:1;transform:none}
+  .beat{opacity:1}
+}
+</style>
+</head>
+<body>
+
+<header class="hdr" id="hdr">
+  <div class="wrap">
+    <a class="lock" href="#" aria-label="Onramp — home">
+      <svg width="23" height="23" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="6" y="14" width="20" height="3" fill="var(--accent)"/>
+        <rect x="6" y="7" width="20" height="3" fill="var(--line)"/>
+        <rect x="6" y="11" width="20" height="3" fill="#1f252b"/>
+        <rect x="6" y="18" width="20" height="3" fill="#1f252b"/>
+        <rect x="6" y="22" width="20" height="3" fill="var(--line)"/>
+      </svg>
+      <b>Onramp</b>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="#lanes">Cost</a>
+      <a href="#contracts">Contracts</a>
+      <a href="#status">Status</a>
+      <a class="btn btn-a" href="/portal">Live demo</a>
+      <a class="btn btn-g" href="#spec">Read the spec</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- ————— intro ————— -->
+<section class="intro">
+  <div class="wrap">
+    <h1>Prove the claim.<br>Not the <em>document</em>.</h1>
+    <p>Onramp verifies a person once, turns the result into twelve booleans, and caches them on chain.
+      The holder proves <b>over18</b> and <b>notSanctioned</b> — not “over18, and here is my date of
+      birth so you can check”.</p>
+    <div class="scroll">Scroll ↓</div>
+  </div>
+</section>
+
+<!-- ————— ACT I · THE FILE ————— -->
+<div class="reel" data-reel="a">
+  <div class="stage">
+
+    <div class="doc" id="docA">
+      <div class="doc-hd"><span class="t">identity document</span><span class="s">held by provider</span></div>
+      <div class="f" data-at="0.10"><span class="k">name</span><span class="v">ELLIS, MARA J.</span></div>
+      <div class="f" data-at="0.18"><span class="k">date of birth</span><span class="v">1994-03-11</span></div>
+      <div class="f" data-at="0.26"><span class="k">passport no.</span><span class="v">P&lt;GBR9482715</span></div>
+      <div class="f" data-at="0.34"><span class="k">nationality</span><span class="v">GBR</span></div>
+      <div class="f" data-at="0.42"><span class="k">address</span><span class="v">14 CORBET ST, LONDON</span></div>
+      <div class="f" data-at="0.50"><span class="k">issued</span><span class="v">2021-06-02</span></div>
+      <div class="f" data-at="0.58"><span class="k">expires</span><span class="v">2031-06-01</span></div>
+      <div class="f keep"><span class="k">over18</span><span class="v">true</span></div>
+      <div class="doc-ft"><span>retained · indefinitely</span><span id="sealedA">0 of 7 sealed</span></div>
+    </div>
+
+    <div class="beat up" data-beat="0.02..0.42">
+      <h2>Every verification draws a file.</h2>
+      <p>Name, date of birth, passport number — retained by the provider, forever.</p>
+    </div>
+    <div class="beat low" data-beat="0.62..0.99">
+      <h2>There is no slot for any of it.</h2>
+      <p>Schema v1 signs twelve attributes. Not one of them is a name, a date of birth, a country or a
+        document number.</p>
+    </div>
+
+    <div class="rail" aria-hidden="true"><i data-rail></i></div>
+    <div class="act" aria-hidden="true">I · the file</div>
+    <div class="counter" aria-hidden="true"><b id="cA">0</b>fields sealed</div>
+  </div>
+</div>
+
+<!-- ————— ACT II · THE CREDENTIAL ————— -->
+<div class="reel" data-reel="b">
+  <div class="stage">
+
+    <div class="cred" id="credB">
+      <div class="cred-hd"><span class="t">credential · schema v1</span><span class="s">BBS+ · 12 messages</span></div>
+      <div class="a keep"><span class="k">over18</span><span class="v">true</span></div>
+      <div class="a" data-at="0.12"><span class="k">schemaVersion</span><span class="v">v1</span></div>
+      <div class="a" data-at="0.19"><span class="k">issuerId</span><span class="v">0x1a9f…c4e2</span></div>
+      <div class="a" data-at="0.26"><span class="k">revocationIndex</span><span class="v">90211</span></div>
+      <div class="a" data-at="0.33"><span class="k">issuedAt</span><span class="v">1718022415</span></div>
+      <div class="a" data-at="0.40"><span class="k">expiresAt</span><span class="v">1725798415</span></div>
+      <div class="a" data-at="0.47"><span class="k">subjectBinding</span><span class="v">7f31…8ba0</span></div>
+      <div class="a" data-at="0.54"><span class="k">over21</span><span class="v">false</span></div>
+      <div class="a" data-at="0.61"><span class="k">notSanctioned</span><span class="v">true</span></div>
+      <div class="a" data-at="0.68"><span class="k">notPep</span><span class="v">true</span></div>
+      <div class="a" data-at="0.75"><span class="k">jurisdictionOk</span><span class="v">true</span></div>
+      <div class="a" data-at="0.82"><span class="k">livenessOk</span><span class="v">true</span></div>
+      <div class="cred-ft">
+        <span class="pill on">1 disclosed</span>
+        <span class="pill">11 withheld</span>
+        <span class="scan">1671 bytes searched · 0 hits</span>
+      </div>
+    </div>
+
+    <div class="beat up" data-beat="0.02..0.40">
+      <h2>Twelve attributes. One is <em>disclosed</em>.</h2>
+      <p>The relying party asks for over18. Everything else stays under the same signature.</p>
+    </div>
+    <div class="beat low" data-beat="0.60..0.99">
+      <h2>There is no range proof.</h2>
+      <p>BBS+ cannot say “over 18” about a date of birth without being handed the date of birth. That is
+        why no date of birth is issued in the first place.</p>
+    </div>
+
+    <div class="rail" aria-hidden="true"><i data-rail></i></div>
+    <div class="act" aria-hidden="true">II · the credential</div>
+    <div class="counter" aria-hidden="true"><b id="cB">11</b>withheld</div>
+  </div>
+</div>
+
+<!-- ————— ACT III · THE GATE ————— -->
+<div class="reel" data-reel="c">
+  <div class="stage">
+
+    <div class="gate" id="gateC">
+      <div class="lane">
+        <h3>On-chain verification</h3>
+        <div class="fn">BBS+ proof, checked in the contract</div>
+        <div class="lbl">Who is trusted</div>
+        <div class="num">nobody</div>
+        <div class="lbl" style="margin-top:14px">Compute</div>
+        <div class="bar"><i data-bar="0.92"></i></div>
+        <div class="num">105,371,834 instr</div>
+        <dl class="dl">
+          <dt>verifies</dt><dd>BLS12-381 pairing, in contract</dd>
+          <dt>fee</dt><dd>707,597 stroops</dd>
+        </dl>
+      </div>
+      <div class="gate-ft" data-at="0.58">
+        <span class="lbl">ClaimRecord</span>
+        <span class="blk"><i data-rec></i></span>
+        <span><b>492 B</b> · read for a few thousand instructions</span>
+      </div>
+    </div>
+
+    <div class="beat up" data-beat="0.02..0.40">
+      <h2>One proof, checked in the contract.</h2>
+      <p>The contract runs the BLS12-381 pairing itself — about 105 million instructions — and writes one
+        492-byte record. No operator's signature is anywhere in the trust path.</p>
+    </div>
+    <div class="beat low" data-beat="0.62..0.99">
+      <h2>Verify once, then read.</h2>
+      <p>The 580 M per-ledger cap allows roughly eight verifications network-wide. So the proof is
+        checked a single time and cached.</p>
+    </div>
+
+    <div class="rail" aria-hidden="true"><i data-rail></i></div>
+    <div class="act" aria-hidden="true">III · the gate</div>
+    <div class="counter" aria-hidden="true"><b id="cC">~8</b>verifications per ledger</div>
+  </div>
+</div>
+
+<!-- ————— ACT IV · REVOCATION ————— -->
+<div class="reel" data-reel="d">
+  <div class="stage">
+
+    <div class="sig" id="sigD">
+      <div class="sig-hd"><span class="t">claim record</span><span class="s">492 bytes · on chain</span></div>
+      <div class="sig-b">
+        <div class="sr"><span class="k">network</span><span class="v">testnet</span></div>
+        <div class="sr"><span class="k">contract</span><span class="v">CCN5 3LTF …AQL4 S6M</span></div>
+        <div class="sr"><span class="k">subject</span><span class="v">CAQO 3LJP …DOUM IOX</span></div>
+        <div class="sr"><span class="k">claims</span><span class="v">over18 · notSanctioned</span></div>
+        <div class="sr"><span class="k">revocation epoch</span><span class="v" id="epoch">0</span></div>
+      </div>
+      <div class="doc-ft" style="display:flex;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--line);font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)">
+        <span id="sigState">record valid</span><span>verified once · read forever</span>
+      </div>
+      <div class="tomb" id="tombD">revoked</div>
+    </div>
+
+    <div class="beat up" data-beat="0.02..0.36">
+      <h2>Revocation that cannot be outrun.</h2>
+      <p>A revocation writes a tombstone and bumps the subject’s epoch. Every attestation made before it
+        dies at once.</p>
+    </div>
+    <div class="beat low" data-beat="0.58..0.99">
+      <h2>Dead at every expiry, every ledger.</h2>
+      <p>Proven against the deployed wasm: a held-back attestation replayed after a revocation returns
+        <span class="mono">Error(Contract, #15)</span>. There is deliberately no
+        <span class="mono">unrevoke</span>.</p>
+    </div>
+
+    <div class="rail" aria-hidden="true"><i data-rail></i></div>
+    <div class="act" aria-hidden="true">IV · revocation</div>
+    <div class="counter" aria-hidden="true"><b id="cD">epoch 0</b>subject state</div>
+  </div>
+</div>
+
+<!-- ————— FACTS ————— -->
+<section class="facts" id="lanes">
+  <div class="wrap">
+    <span class="fnum">§ 01</span>
+    <div>
+      <h2>What a verification costs</h2>
+      <p class="lead">One record per subject, 492 bytes, written once. Every figure below comes from a
+        landed envelope on testnet, not a simulation.</p>
+      <div class="rv">
+        <div class="tscroll">
+        <table>
+          <thead>
+            <tr><th scope="col">Step</th><th scope="col">Instructions</th><th scope="col">Fee (stroops)</th><th scope="col">Bytes written</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Verify the proof and write the record</strong></td>
+              <td class="n">105,371,834</td>
+              <td class="n">707,597</td>
+              <td class="n">492</td>
+            </tr>
+            <tr>
+              <td><strong>Read the record (every later check)</strong></td>
+              <td class="n">≈ 1,650,000</td>
+              <td class="n">≈ 5,400</td>
+              <td class="n">0</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="figs">
+          <div class="fig"><div class="v">105<small>M</small></div><div class="l">Instructions to verify once</div></div>
+          <div class="fig"><div class="v">0.07<small>XLM</small></div><div class="l">Fee for that verification</div></div>
+          <div class="fig"><div class="v">492<small>B</small></div><div class="l">Written, then read for cents</div></div>
+        </div>
+        <p style="margin-top:24px;max-width:74ch">
+          Compute is nearly free at this scale; storage is what you pay for. That is why the proof is
+          verified once, in the contract, and every later check is a cheap read of the cached record —
+          the real constraint was never the fee.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="facts" id="once">
+  <div class="wrap">
+    <span class="fnum">§ 02</span>
+    <div>
+      <h2>Why the proof is verified only once</h2>
+      <p class="lead">The verify-once shape is forced by the ledger budget, not chosen for elegance.</p>
+      <div class="cols rv">
+        <div>
+          <h3>The cost of a pairing</h3>
+          <p>On-chain BBS+ verification costs</p>
+          <div class="code" style="margin:14px 0">41,980,626 <span class="c">+</span> 1,471,918 <span class="c">·</span> N</div>
+          <p>about <b style="color:var(--ivory)">59.6 M</b> for a twelve-attribute credential. That fits
+            the 400 M per-transaction budget comfortably.</p>
+        </div>
+        <div>
+          <h3>The per-ledger ceiling</h3>
+          <p>The 580 M per-ledger cap allows roughly</p>
+          <div class="code" style="margin:14px 0"><span style="color:var(--accent-soft)">~8</span> <span class="c">verifications · network-wide · per 5.5 s</span></div>
+          <p>Per-transfer BBS+ verification is therefore not viable at any scale. Verifying once and
+            reading a cached record is the only shape that works.</p>
+        </div>
+      </div>
+      <div class="figs rv">
+        <div class="fig"><div class="v">62,618<small> host CPU</small></div><div class="l">check() on a live record</div></div>
+        <div class="fig"><div class="v">62,748<small> host CPU</small></div><div class="l">check() on a revoked record</div></div>
+        <div class="fig"><div class="v">+130</div><div class="l">The entire cost of revocation</div></div>
+      </div>
+      <p style="margin-top:22px;max-width:74ch">
+        Revocation did not make the read path dearer: the +130 is the mask result differing, not a
+        second storage read. Still one storage read per check.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="facts" id="revocation">
+  <div class="wrap">
+    <span class="fnum">§ 03</span>
+    <div>
+      <h2>Two levers, and both must be pulled</h2>
+      <div class="cols rv">
+        <div>
+          <h3>On chain</h3>
+          <ul class="tick">
+            <li>A <b>tombstone</b> — claims set to zero. Never a delete, never a backdated expiry;
+              both are undoable by a holder who kept a held-back attestation.</li>
+            <li>An incremented <b>revocation epoch</b> on the subject, bound into every signed payload.</li>
+            <li>Two doors: one for a human decision, and one so an automated sanctions feed can act
+              in seconds without holding a funded account.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Off chain</h3>
+          <ul class="tick">
+            <li>A W3C <b>Bitstring Status List v1.0</b> implementation, no network call and no new
+              dependencies.</li>
+            <li>Malformed lists fail <b>closed</b>: 28 malformed inputs, 28 ×
+              <span class="mono">valid: false</span>, zero throws.</li>
+          </ul>
+          <div class="callout" style="margin-top:22px">
+            <b>What revocation does not do.</b> The record carries an audit index that ties it to the
+            status-list entry behind it — but the contract never reads it back, and verify-once means
+            the chain never re-verifies. Revoking in the status list does <em>not</em> make a cached
+            on-chain record go false; the on-chain tombstone is what does that.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="facts" id="contracts">
+  <div class="wrap">
+    <span class="fnum">§ 04</span>
+    <div>
+      <h2>Deployed on testnet</h2>
+      <p class="lead">Deployed to Stellar testnet: the issuer registry, the gate, and a
+        SEP-57 adapter for regulated assets. Each deployed wasm was fetched back off the network and
+        verified byte-for-byte against the local build.</p>
+      <div class="ctr rv">
+        <a href="https://stellar.expert/explorer/testnet/contract/REGISTRY_ID_PLACEHOLDER" target="_blank" rel="noopener">
+          <span class="nm">kyc-registry</span>
+          <span class="id">REGISTRY_ID_PLACEHOLDER</span>
+          <span class="go">explorer →</span>
+        </a>
+        <a href="https://stellar.expert/explorer/testnet/contract/GATE_ID_PLACEHOLDER" target="_blank" rel="noopener">
+          <span class="nm">kyc-gate</span>
+          <span class="id">GATE_ID_PLACEHOLDER</span>
+          <span class="go">explorer →</span>
+        </a>
+        <a href="https://stellar.expert/explorer/testnet/contract/TREX_ID_PLACEHOLDER" target="_blank" rel="noopener">
+          <span class="nm">trex-wrap</span>
+          <span class="id">TREX_ID_PLACEHOLDER</span>
+          <span class="go">explorer →</span>
+        </a>
+      </div>
+      <p style="margin-top:22px;max-width:74ch">
+        The adapter lets a regulated-asset transfer require an on-chain identity verdict before it
+        settles. A revoked subject and a never-verified address are refused identically — the token
+        never learns which.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="facts" id="build">
+  <div class="wrap">
+    <span class="fnum">§ 05</span>
+    <div>
+      <h2>Build with it</h2>
+      <p class="lead">Three packages, and a demo you can run in the browser against live testnet.</p>
+      <div class="code rv"><span class="c"># holder-side: passkey wallet, credential custody, proof submission</span>
+npm install @stellaronramp/sdk
+
+<span class="c"># off-chain BBS+: issue, derive, verify. No chain, no network, no PII at rest.</span>
+npm install @stellaronramp/identity
+
+<span class="c"># the chain signer: attestation payloads, epoch reader, KMS custody seam</span>
+npm install @stellaronramp/gateway</div>
+      <div class="cols" style="margin-top:34px">
+        <div class="rv">
+          <h3>Requirements</h3>
+          <ul class="tick">
+            <li>rustc <b>1.95</b>, stellar CLI <b>27.1</b>, node <b>≥ 22</b></li>
+            <li>target <span class="mono">wasm32v1-none</span> — a hard requirement, not a habit: two of
+              the upgrade tests read a real wasm off disk and fail loudly without it.</li>
+          </ul>
+        </div>
+        <div class="rv">
+          <h3>Try it</h3>
+          <p style="margin-bottom:16px">Register in the partner portal, walk the KYC wizard, and watch a
+            real passkey wallet get deployed, a credential issued, and the proof verified inside the
+            contract on testnet — then read the record back from your own browser.</p>
+          <a class="btn btn-a" href="/portal">Open the partner portal</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="facts" id="status">
+  <div class="wrap">
+    <span class="fnum">§ 06</span>
+    <div>
+      <h2>What is proven</h2>
+      <p class="lead">Every item below was executed against the deployed contracts on testnet, not just
+        in unit tests.</p>
+      <div class="cols rv" style="grid-template-columns:1fr">
+        <div>
+          <h3>Executed and proven</h3>
+          <ul class="tick">
+            <li><b>On-chain BBS+ verification</b> — the contract runs the pairing itself, against a key
+              it fetches from the registry. No gateway signature anywhere in the path.</li>
+            <li><b>Selective disclosure</b> — 276 tests covering index substitution, forged issuers and
+              over-disclosure.</li>
+            <li><b>PII never enters the credential</b> — no slot exists for it.</li>
+            <li><b>Presentation binding</b> — pinned to a wallet, contract, network and ledger deadline.
+              There is no API path that produces an unbound proof.</li>
+            <li><b>Revocation, on chain and off</b> — proven against the deployed wasm, not just unit
+              tests.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 style="font-size:16.5px;margin:38px 0 14px">Design decisions</h3>
+      <div class="rv">
+        <div class="tscroll">
+        <table>
+          <thead><tr><th scope="col">Decision</th><th scope="col">Why it was made</th></tr></thead>
+          <tbody>
+            <tr><td><strong>over18 is pre-computed, not a range proof</strong></td>
+                <td>BBS+ cannot express a range statement. The alternatives need a second unmeasured on-chain verifier.</td></tr>
+            <tr><td><strong>subjectBinding is disclosed at the gate</strong></td>
+                <td>A stable per-credential correlation handle. Correct at a gate that already knows the wallet, wrong for arbitrary third parties.</td></tr>
+            <tr><td><strong>Expiry is a ledger sequence, not a wall clock</strong></td>
+                <td>Ledger cadence is a target, not a guarantee, so “90 days” is really “N ledgers” and it drifts.</td></tr>
+            <tr><td><strong>The admin key is a single point of failure</strong></td>
+                <td>Both alternatives — propose/accept with a delay, or a guardian veto — are product decisions about who may block an emergency patch.</td></tr>
+            <tr><td><strong>An operator key can only deny, never grant</strong></td>
+                <td>A leaked operator key can revoke an address. It cannot mint claims — revocation only ever takes them away.</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="close" id="spec">
+  <div class="wrap">
+    <h2>Read the protocol.</h2>
+    <p>The spec and the contracts, written down properly — every claim on this page is tagged verified or
+      unverified there.</p>
+    <div class="ctas">
+      <a class="btn btn-a" href="https://github.com/erhantrk/stellar-onramp#readme" target="_blank" rel="noopener">README</a>
+      <a class="btn btn-g" href="https://github.com/erhantrk/stellar-onramp" target="_blank" rel="noopener">Source</a>
+    </div>
+    <p style="margin-top:30px;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)">
+      Testnet only · the demo’s issuer seed is public by design · unaudited
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="l">Onramp<span>compliant onboarding on Stellar · testnet</span></div>
+    <div class="r">
+      <a href="https://github.com/erhantrk/stellar-onramp" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/erhantrk/stellar-onramp/blob/main/README.md" target="_blank" rel="noopener">README</a>
+      <a href="https://stellar.expert/explorer/testnet" target="_blank" rel="noopener">stellar.expert</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  'use strict';
+  const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ——— header ——— */
+  const hdr = document.getElementById('hdr');
+  const onScrollHeader = () => hdr.classList.toggle('solid', window.scrollY > 40);
+  addEventListener('scroll', onScrollHeader, { passive: true });
+  onScrollHeader();
+
+  /* ——— scroll reveals in the facts half ——— */
+  const rv = [...document.querySelectorAll('.rv')];
+  if (REDUCED) {
+    rv.forEach(el => el.classList.add('in'));
+  } else {
+    const io = new IntersectionObserver((es) => {
+      es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    rv.forEach(el => io.observe(el));
+  }
+
+  /* ——— reed engine —————————————————————————————
+     Each reel is a tall element with a sticky stage inside. Scroll position
+     through the reel becomes p ∈ [0,1], which drives every [data-at] step,
+     the text beats and the per-act readouts. One rAF-throttled listener. */
+  const reels = [...document.querySelectorAll('.reel')].map(root => {
+    const at = [...root.querySelectorAll('[data-at]')];
+    const beats = [...root.querySelectorAll('[data-beat]')].map(b => {
+      const [a, z] = b.dataset.beat.split('..').map(Number);
+      return { el: b, a, z };
+    });
+    return {
+      root,
+      at,
+      beats,
+      rail: root.querySelector('[data-rail]'),
+      card: root.querySelector('.doc,.cred,.gate,.sig'),
+      last: -1,
+    };
+  });
+
+  function progress(root) {
+    const r = root.getBoundingClientRect();
+    const span = root.offsetHeight - innerHeight;
+    if (span <= 0) return 0;
+    return Math.min(1, Math.max(0, -r.top / span));
+  }
+
+  function applyActExtras(key, p, root) {
+    if (key === 'a') {
+      const n = root.querySelectorAll('.f[data-at]').length;
+      const done = root.querySelectorAll('.f[data-at].on').length;
+      const out = root.querySelector('#sealedA');
+      if (out) out.textContent = done + ' of ' + n + ' sealed';
+      const c = root.querySelector('#cA');
+      if (c) c.textContent = done;
+    }
+    if (key === 'b') {
+      const c = root.querySelector('#cB');
+      if (c) c.textContent = 11;
+    }
+    if (key === 'c') {
+      root.querySelectorAll('[data-bar]').forEach(bar => {
+        const target = parseFloat(bar.dataset.bar);
+        bar.style.width = (Math.min(1, Math.max(0, (p - 0.18) / 0.34)) * target * 100) + '%';
+      });
+      const rec = root.querySelector('[data-rec]');
+      if (rec) rec.style.width = (Math.min(1, Math.max(0, (p - 0.62) / 0.24)) * 100) + '%';
+    }
+    if (key === 'd') {
+      const epoch = root.querySelector('#epoch');
+      const sig = root.querySelector('#sigD');
+      const tomb = root.querySelector('#tombD');
+      const state = root.querySelector('#sigState');
+      const c = root.querySelector('#cD');
+      const dead = p >= 0.5;
+      if (epoch) epoch.textContent = dead ? '1' : '0';
+      if (sig) sig.classList.toggle('locked', dead);
+      if (tomb) tomb.classList.toggle('on', dead);
+      if (state) state.textContent = dead ? 'record revoked' : 'record valid';
+      if (c) c.textContent = dead ? 'epoch 1' : 'epoch 0';
+      root.querySelectorAll('.sig .sr .v').forEach(v => v.classList.toggle('dead', dead && v.id !== 'epoch'));
+    }
+  }
+
+  function frame() {
+    reels.forEach(r => {
+      const p = progress(r.root);
+      if (Math.abs(p - r.last) < 0.0015) return;
+      r.last = p;
+      r.at.forEach(el => el.classList.toggle('on', p >= parseFloat(el.dataset.at)));
+      r.beats.forEach(b => b.el.classList.toggle('on', p >= b.a && p <= b.z));
+      if (r.rail) r.rail.style.height = (p * 100) + '%';
+      if (r.card) r.card.style.transform = 'scale(' + (0.955 + p * 0.045) + ')';
+      applyActExtras(r.root.dataset.reel, p, r.root);
+    });
+  }
+
+  if (REDUCED) {
+    reels.forEach(r => {
+      r.at.forEach(el => el.classList.add('on'));
+      r.beats.forEach(b => b.el.classList.add('on'));
+      if (r.rail) r.rail.style.height = '100%';
+      applyActExtras(r.root.dataset.reel, 1, r.root);
+      const rec = r.root.querySelector('[data-rec]');
+      if (rec) rec.style.width = '100%';
+    });
+  } else {
+    let ticking = false;
+    const request = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => { frame(); ticking = false; });
+    };
+    addEventListener('scroll', request, { passive: true });
+    addEventListener('resize', request);
+    frame();
+  }
+})();
+</script>
+</body>
+</html>
