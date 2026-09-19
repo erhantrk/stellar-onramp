@@ -1,0 +1,12 @@
+{
+  // Typechecks the tests and the vitest config, which `tsconfig.json` deliberately excludes so
+  // they never reach `dist`. `composite: false` + `noEmit` because this project is a checker only.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
+}

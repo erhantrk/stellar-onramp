@@ -4,6 +4,7 @@
   // itself — it only names the projects, in dependency order.
   "files": [],
   "references": [
-    { "path": "./packages/identity" }
+    { "path": "./packages/identity" },
+    { "path": "./packages/gateway" }
   ]
 }
