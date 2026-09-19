@@ -476,10 +476,14 @@ async function runApprovedPath(deps: DemoDeps, args: RunContext): Promise<Onboar
   const { revocationEpoch } = await readSubjectChainState(sim, cAddr);
   const expiresAt = await recordExpiresAtFor(server, RECORD_LIFETIME_LEDGERS);
 
+  // What the proof actually reveals, which is what the contract will record — not the wider set
+  // the credential was issued with.
+  const attestedBitmap = deriveGrantedClaims(proof);
+
   const bbsArgs = attestBbsArgs({
     subject: cAddr,
     issuerId: issuerIdHex,
-    claimsBitmap: deriveGrantedClaims(proof),
+    claimsBitmap: attestedBitmap,
     expiresAt,
     revocationEpoch,
     revocationIndex,
@@ -554,7 +558,7 @@ async function runApprovedPath(deps: DemoDeps, args: RunContext): Promise<Onboar
     data: { over18: checkOver18, over21: checkOver21, disclosed: [...args.disclose] },
   });
 
-  return { ok: true, subject: cAddr, txHash, claimBitmap, revocationIndex };
+  return { ok: true, subject: cAddr, txHash, claimBitmap: attestedBitmap, revocationIndex };
 }
 
 /** Run the onboarding pipeline for a wallet the caller owns. */
