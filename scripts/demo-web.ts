@@ -9,8 +9,8 @@
  *      issuer key, the status-list signer, the session store, the session-JWT issuer, and the
  *      applicant creator of the in-process mock KYC provider (`scripts/demo/mock-kyc.ts`).
  *   2. The public server: the landing page, the partner portal and its `/api/*` routes
- *      (`scripts/onboard/`), plus a standalone `/demo` page that runs the same pipeline for an
- *      anonymous throwaway wallet.
+ *      (`scripts/onboard/`), the browser copy of the Stellar SDK, plus a standalone `/demo` page
+ *      that runs the same pipeline for an anonymous throwaway wallet.
  *
  * A portal run (`scripts/demo/demo-flow.ts`) opens a real session on the gateway, records the
  * mock provider's verdict, issues a real BBS+ credential, derives a proof, and submits
@@ -49,6 +49,15 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const WEB_ROOT = join(ROOT, 'apps', 'web');
 /** The UMD browser build of the pinned @stellar/stellar-sdk (global `StellarSdk`). */
+
+const STELLAR_SDK_BROWSER_BUNDLE = join(
+  ROOT,
+  'node_modules',
+  '@stellar',
+  'stellar-sdk',
+  'dist',
+  'stellar-sdk.min.js',
+);
 
 const DATA_DIR = resolve(process.env['PORTAL_DATA_DIR'] ?? join(ROOT, 'scripts', '.demo-data'));
 const ACCOUNTS_FILE = join(DATA_DIR, 'accounts.json');
@@ -266,6 +275,17 @@ async function handleRequest(
 ): Promise<void> {
   const pathname = decodeURIComponent(url.pathname);
 
+  // The browser's own copy of the Stellar SDK, so the portal can read the chain directly
+  // (simulateTransaction against public testnet RPC) with this server out of the path.
+  if (pathname === '/vendor/stellar-sdk.min.js') {
+    if (method !== 'GET' && method !== 'HEAD') {
+      respondText(res, 405, 'method not allowed');
+      return;
+    }
+    serveFile(res, STELLAR_SDK_BROWSER_BUNDLE, 'text/javascript; charset=utf-8');
+    return;
+  }
+
   if (pathname === '/demo/run') {
     if (method !== 'GET') {
       respondText(res, 405, 'method not allowed');
@@ -480,6 +500,8 @@ async function main(): Promise<void> {
     runs,
     runPipeline: (args) => runOnboardingPipeline(deps, args),
     readRecord: (cAddr) => readOnChainRecord(deps, cAddr),
+    gateContractId,
+    chain: { rpcUrl, networkPassphrase, simulationSource: testnet.deployer },
     createWallet: (args) => wallets.create(args),
     now: () => Math.floor(Date.now() / 1000),
     chainEnabled,

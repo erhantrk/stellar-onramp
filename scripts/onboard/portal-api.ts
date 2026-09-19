@@ -63,6 +63,10 @@ export interface PortalApiDeps {
   }) => Promise<OnboardingResult>;
   /** Read a wallet's on-chain record and the gate's verdicts (`readOnChainRecord`). */
   readonly readRecord: (cAddr: string) => Promise<OnChainRecordView>;
+  /** The deployed kyc-gate id, so the page can print verify-it-yourself CLI commands. */
+  readonly gateContractId: string;
+  /** What the browser needs to simulate the gate's reads itself, bypassing this server. */
+  readonly chain: { rpcUrl: string; networkPassphrase: string; simulationSource: string };
   /**
    * Deploy the account's passkey smart wallet on testnet (scripts/onboard/wallet.ts). Called at
    * most ONCE per account, from inside the first KYC run, so the deployment streams as a step.
@@ -481,7 +485,12 @@ export async function handlePortalApi(
           sendJson(res, 200, { view: null, chainEnabled: deps.chainEnabled });
           return;
         }
-        sendJson(res, 200, { view: await deps.readRecord(account.walletCAddr), chainEnabled: true });
+        sendJson(res, 200, {
+          view: await deps.readRecord(account.walletCAddr),
+          chainEnabled: true,
+          gateContractId: deps.gateContractId,
+          chain: deps.chain,
+        });
         return;
       }
 

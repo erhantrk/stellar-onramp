@@ -279,6 +279,11 @@ button{font-family:inherit}
 .check.na{opacity:.75}
 .check.na .val{color:inherit}
 pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:12px;border-radius:8px;background:#0d1013;color:#e6e8eb;margin:10px 0}
+.chainread{margin-top:12px}
+.chainrow{display:flex;justify-content:space-between;gap:12px;padding:8px 10px;border-radius:6px;background:rgba(0,0,0,.04);margin-top:6px;font-size:13px}
+.chainrow .val{font-family:'IBM Plex Mono',monospace}
+.chainrow.yes .val{color:#1a7f37}
+.chainrow.no .val{color:#b42318}
 </style>
 </head>
 <body>
@@ -801,6 +806,70 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
 
 
 
+  /* ---------------- read the chain from the browser ----------------
+   * Loads the pinned @stellar/stellar-sdk browser bundle (served from this server's node_modules,
+   * but it is the SDK talking to the PUBLIC RPC — this server never sees the question or the
+   * answer) and simulates the same three reads the CLI commands make. A simulation is unsigned,
+   * costs nothing, and only needs an existing account in the envelope's source field.
+   */
+  var sdkLoading = null;
+  function loadStellarSdk(){
+    if (window.StellarSdk) return Promise.resolve(window.StellarSdk);
+    if (sdkLoading) return sdkLoading;
+    sdkLoading = new Promise(function(resolve, reject){
+      var s = document.createElement('script');
+      s.src = '/vendor/stellar-sdk.min.js';
+      s.onload = function(){ window.StellarSdk ? resolve(window.StellarSdk) : reject(new Error('SDK bundle loaded but exposed no StellarSdk global')); };
+      s.onerror = function(){ reject(new Error('could not load /vendor/stellar-sdk.min.js')); };
+      document.head.appendChild(s);
+    });
+    return sdkLoading;
+  }
+
+  async function readChainFromBrowser(chain, gateId, subject, box){
+    var Sdk = await loadStellarSdk();
+    var server = new Sdk.rpc.Server(chain.rpcUrl);
+    var contract = new Sdk.Contract(gateId);
+    var subj = new Sdk.Address(subject).toScVal();
+    var u32 = function(n){ return Sdk.nativeToScVal(n, { type: 'u32' }); };
+    async function read(fn){
+      var args = Array.prototype.slice.call(arguments, 1);
+      var tx = new Sdk.TransactionBuilder(new Sdk.Account(chain.simulationSource, '0'), {
+        fee: Sdk.BASE_FEE, networkPassphrase: chain.networkPassphrase
+      }).addOperation(contract.call.apply(contract, [fn].concat(args))).setTimeout(30).build();
+      var sim = await server.simulateTransaction(tx);
+      if (Sdk.rpc.Api.isSimulationError(sim)) throw new Error(fn + ': ' + sim.error);
+      return Sdk.scValToNative(sim.result.retval);
+    }
+    function line(label, value, cls){
+      var d = document.createElement('div');
+      d.className = 'chainrow' + (cls ? ' ' + cls : '');
+      var l = document.createElement('span'); l.className = 'lbl'; l.textContent = label;
+      var r = document.createElement('span'); r.className = 'val'; r.textContent = value;
+      d.appendChild(l); d.appendChild(r); box.appendChild(d);
+    }
+    var over18 = await read('check', subj, u32(1));
+    line('check(OVER_18)', String(over18), over18 ? 'yes' : 'no');
+    var rec = await read('claim_record', subj);
+    if (rec === null || rec === undefined){
+      line('claim_record', 'none', 'no');
+    } else {
+      var issuer = rec.issuer_id;
+      if (issuer && issuer.length !== undefined && typeof issuer !== 'string'){
+        issuer = Array.prototype.map.call(issuer, function(b){ return ('0' + b.toString(16)).slice(-2); }).join('');
+      }
+      line('claim_record.claims (bitmap)', String(rec.claims));
+      line('claim_record.issuer_id', String(issuer));
+      line('claim_record.issued_at / expires_at (ledger)', String(rec.issued_at) + ' / ' + String(rec.expires_at));
+      line('claim_record.revocation_index', String(rec.revocation_index));
+    }
+    var note = document.createElement('p');
+    note.className = 'muted small';
+    note.textContent = 'Read at ' + new Date().toLocaleTimeString() + ' via ' + chain.rpcUrl + ' — unsigned simulateTransaction calls from this tab.';
+    box.appendChild(note);
+  }
+
+
   function renderAccount(){
     var a = state.account;
     if (!a) return;
@@ -1250,6 +1319,55 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     var rows = [['Subject', v.subject], ['Record', v.hasRecord ? 'present' : 'none']];
     if (v.record){
       Object.keys(v.record).forEach(function(k){ rows.push([k, v.record[k]]); });
+    }
+    if (out.gateContractId){
+      var verify = document.createElement('div');
+      verify.className = 'note';
+      verify.style.marginTop = '20px';
+      var h = document.createElement('b');
+      h.textContent = 'Verify it yourself, without this server';
+      verify.appendChild(h);
+      var p = document.createElement('p');
+      p.className = 'muted small';
+      p.textContent = 'Your browser asks the public testnet RPC directly (soroban-testnet.stellar.org) ' +
+        'with the Stellar SDK — this server is not in the path. The same reads as stellar CLI ' +
+        'commands are below for a terminal.';
+      verify.appendChild(p);
+      if (out.chain){
+        var btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.type = 'button';
+        btn.textContent = 'Read the chain from this browser';
+        var outBox = document.createElement('div');
+        outBox.className = 'chainread';
+        outBox.hidden = true;
+        btn.addEventListener('click', function(){
+          btn.disabled = true; btn.textContent = 'Asking testnet RPC…';
+          outBox.hidden = false; outBox.textContent = '';
+          readChainFromBrowser(out.chain, out.gateContractId, v.subject, outBox)
+            .catch(function(err){ outBox.textContent = 'RPC read failed: ' + err.message; })
+            .then(function(){ btn.disabled = false; btn.textContent = 'Read the chain again'; });
+        });
+        verify.appendChild(btn);
+        verify.appendChild(outBox);
+      }
+      var pre = document.createElement('pre');
+      pre.className = 'cmd';
+      var inv = 'stellar contract invoke --network testnet --source-account me --id ' + out.gateContractId;
+      pre.textContent =
+        '# once: any funded testnet key works as the simulation source\n' +
+        'stellar keys generate --fund me --network testnet\n\n' +
+        '# does the chain say this wallet is over 18?  (claim_bit 1 = OVER_18)\n' +
+        inv + ' \\\n  -- check --subject ' + v.subject + ' --claim_bit 1\n\n' +
+        '# the raw ClaimRecord\n' +
+        inv + ' \\\n  -- claim_record --subject ' + v.subject;
+      verify.appendChild(pre);
+      var link = document.createElement('a');
+      link.href = 'https://stellar.expert/explorer/testnet/contract/' + out.gateContractId;
+      link.target = '_blank'; link.rel = 'noopener';
+      link.textContent = 'kyc-gate on stellar.expert';
+      verify.appendChild(link);
+      body.appendChild(verify);
     }
     rows.forEach(function(row){
       var dt = document.createElement('dt');
