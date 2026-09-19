@@ -310,7 +310,7 @@ export interface VerifyOptions {
    * `predicate.expect` verbatim and a caller-authored predicate may legitimately have no value
    * expectations. `{}` is therefore the one remaining silent way to disable this check; it is not
    */
-  readonly expectedClaims?: Partial<Record<ClaimName, ClaimValue>> | UnsafeSkip;
+  readonly expectedClaims: Partial<Record<ClaimName, ClaimValue>> | UnsafeSkip;
   /**
    * REQUIRED. The EXACT set of indexes this verification asked the holder to reveal. A proof that
    * reveals MORE is rejected.
@@ -337,7 +337,8 @@ export interface VerifyOptions {
  * Every check disabled. For tests, for fixture replay, and for cryptography-only tooling that
  * genuinely has no policy context. NEVER in a production verification path — the identifier is
  *
- * Typed as a FULL `VerifyOptions`. It spreads into a `checkPredicate` bag: that parameter is
+ * Typed as a FULL `VerifyOptions` (it was `Omit<VerifyOptions,'expectedClaims'>` while
+ * `expectedClaims` was optional). It still spreads into a `checkPredicate` bag: that parameter is
  * `Omit<VerifyOptions,'expectedClaims'>`, and a named constant carrying one extra property is
  * assignable to it — excess-property checking only bites on fresh object literals. So both
  *
@@ -669,7 +670,7 @@ export async function verifyDetailed(
     // Disclosed-VALUE policy. `UNSAFE_SKIP` is the only way to switch it off from TypeScript;
     // a plain-JS caller who omits the field entirely lands in the guard below and is REJECTED
     // half). `undefined` is emphatically not "skip" here.
-    if (options.expectedClaims !== undefined && options.expectedClaims !== UNSAFE_SKIP) {
+    if (options.expectedClaims !== UNSAFE_SKIP) {
       const expected: unknown = options.expectedClaims;
       //     expected === null || typeof expected !== 'object' || Array.isArray(expected)
       // which rejects `undefined`, `null`, `[]`, `0`, `'over18'` and functions — but ACCEPTS any
