@@ -574,9 +574,8 @@ footer .r a:hover{color:var(--ivory)}
     </div>
     <div class="beat low" data-beat="0.58..0.99">
       <h2>Dead at every expiry, every ledger.</h2>
-      <p>Proven against the deployed wasm: a held-back attestation replayed after a revocation returns
-        <span class="mono">Error(Contract, #15)</span>. There is deliberately no
-        <span class="mono">unrevoke</span>.</p>
+      <p>A proof saved before a revocation and replayed after it is rejected by the contract. A revoked
+        subject can only be verified again, never un-revoked.</p>
     </div>
 
     <div class="rail" aria-hidden="true"><i data-rail></i></div>
@@ -591,8 +590,8 @@ footer .r a:hover{color:var(--ivory)}
     <span class="fnum">§ 01</span>
     <div>
       <h2>What a verification costs</h2>
-      <p class="lead">One record per subject, 492 bytes, written once. Every figure below comes from a
-        landed envelope on testnet, not a simulation.</p>
+      <p class="lead">One record per subject, 492 bytes, written once. Figures are from transactions on
+        testnet.</p>
       <div class="rv">
         <div class="tscroll">
         <table>
@@ -635,31 +634,30 @@ footer .r a:hover{color:var(--ivory)}
     <span class="fnum">§ 02</span>
     <div>
       <h2>Why the proof is verified only once</h2>
-      <p class="lead">The verify-once shape is forced by the ledger budget, not chosen for elegance.</p>
+      <p class="lead">A pairing check is expensive and the ledger has a fixed budget, so the proof is checked
+        once and the result is cached.</p>
       <div class="cols rv">
         <div>
           <h3>The cost of a pairing</h3>
-          <p>On-chain BBS+ verification costs</p>
-          <div class="code" style="margin:14px 0">41,980,626 <span class="c">+</span> 1,471,918 <span class="c">·</span> N</div>
-          <p>about <b style="color:var(--ivory)">59.6 M</b> for a twelve-attribute credential. That fits
-            the 400 M per-transaction budget comfortably.</p>
+          <p>Verifying a BBS+ proof inside the contract takes about</p>
+          <div class="code" style="margin:14px 0">105 M <span class="c">instructions · once per wallet</span></div>
+          <p>Well inside the 400 M a single transaction may use.</p>
         </div>
         <div>
           <h3>The per-ledger ceiling</h3>
           <p>The 580 M per-ledger cap allows roughly</p>
           <div class="code" style="margin:14px 0"><span style="color:var(--accent-soft)">~8</span> <span class="c">verifications · network-wide · per 5.5 s</span></div>
-          <p>Per-transfer BBS+ verification is therefore not viable at any scale. Verifying once and
-            reading a cached record is the only shape that works.</p>
+          <p>Checking a proof on every transfer would not scale, so the contract verifies once and
+            every later check reads the cached record.</p>
         </div>
       </div>
       <div class="figs rv">
-        <div class="fig"><div class="v">62,618<small> host CPU</small></div><div class="l">check() on a live record</div></div>
-        <div class="fig"><div class="v">62,748<small> host CPU</small></div><div class="l">check() on a revoked record</div></div>
-        <div class="fig"><div class="v">+130</div><div class="l">The entire cost of revocation</div></div>
+        <div class="fig"><div class="v">1</div><div class="l">storage read per check</div></div>
+        <div class="fig"><div class="v">≈ 1.6<small> M</small></div><div class="l">instructions to read a record</div></div>
+        <div class="fig"><div class="v">0</div><div class="l">extra cost when a record is revoked</div></div>
       </div>
       <p style="margin-top:22px;max-width:74ch">
-        Revocation did not make the read path dearer: the +130 is the mask result differing, not a
-        second storage read. Still one storage read per check.
+        A revoked record costs the same to read as a live one; the check simply answers false.
       </p>
     </div>
   </div>
@@ -754,8 +752,7 @@ npm install @stellaronramp/gateway</div>
           <h3>Requirements</h3>
           <ul class="tick">
             <li>rustc <b>1.95</b>, stellar CLI <b>27.1</b>, node <b>≥ 22</b></li>
-            <li>target <span class="mono">wasm32v1-none</span> — a hard requirement, not a habit: two of
-              the upgrade tests read a real wasm off disk and fail loudly without it.</li>
+            <li>target <span class="mono">wasm32v1-none</span> for the contracts.</li>
           </ul>
         </div>
         <div class="rv">
@@ -774,22 +771,22 @@ npm install @stellaronramp/gateway</div>
   <div class="wrap">
     <span class="fnum">§ 06</span>
     <div>
-      <h2>What is proven</h2>
-      <p class="lead">Every item below was executed against the deployed contracts on testnet, not just
-        in unit tests.</p>
+      <h2>What the contracts guarantee</h2>
+      <p class="lead">Each of these runs on the deployed testnet contracts.</p>
       <div class="cols rv" style="grid-template-columns:1fr">
         <div>
-          <h3>Executed and proven</h3>
+          <h3>Guarantees</h3>
           <ul class="tick">
-            <li><b>On-chain BBS+ verification</b> — the contract runs the pairing itself, against a key
-              it fetches from the registry. No gateway signature anywhere in the path.</li>
-            <li><b>Selective disclosure</b> — 276 tests covering index substitution, forged issuers and
-              over-disclosure.</li>
-            <li><b>PII never enters the credential</b> — no slot exists for it.</li>
-            <li><b>Presentation binding</b> — pinned to a wallet, contract, network and ledger deadline.
-              There is no API path that produces an unbound proof.</li>
-            <li><b>Revocation, on chain and off</b> — proven against the deployed wasm, not just unit
-              tests.</li>
+            <li><b>The proof is verified by the contract</b>, against an issuer key it reads from the
+              registry. No server signature is in the trust path.</li>
+            <li><b>Only the claims that are needed are revealed.</b> A proof can disclose a subset of
+              the credential's attributes; the rest stay hidden under the same signature.</li>
+            <li><b>No personal data in the credential.</b> The schema has no field for a name, a date
+              of birth or a document number.</li>
+            <li><b>A proof is bound</b> to one wallet, one contract, one network and a ledger deadline.
+              It cannot be replayed elsewhere or later.</li>
+            <li><b>Revocation works on chain and off:</b> a tombstone in the contract and a signed
+              status list from the issuer.</li>
           </ul>
         </div>
       </div>
@@ -801,15 +798,15 @@ npm install @stellaronramp/gateway</div>
           <thead><tr><th scope="col">Decision</th><th scope="col">Why it was made</th></tr></thead>
           <tbody>
             <tr><td><strong>over18 is pre-computed, not a range proof</strong></td>
-                <td>BBS+ cannot express a range statement. The alternatives need a second unmeasured on-chain verifier.</td></tr>
+                <td>BBS+ cannot express a range statement, so the issuer derives the boolean and signs it as an attribute.</td></tr>
             <tr><td><strong>subjectBinding is disclosed at the gate</strong></td>
-                <td>A stable per-credential correlation handle. Correct at a gate that already knows the wallet, wrong for arbitrary third parties.</td></tr>
+                <td>The gate already knows the wallet, so revealing the binding there costs nothing; it is not revealed to other parties.</td></tr>
             <tr><td><strong>Expiry is a ledger sequence, not a wall clock</strong></td>
-                <td>Ledger cadence is a target, not a guarantee, so “90 days” is really “N ledgers” and it drifts.</td></tr>
-            <tr><td><strong>The admin key is a single point of failure</strong></td>
-                <td>Both alternatives — propose/accept with a delay, or a guardian veto — are product decisions about who may block an emergency patch.</td></tr>
+                <td>The contract can only read the ledger sequence, so lifetimes are counted in ledgers and drift slightly against calendar time.</td></tr>
+            <tr><td><strong>A single admin key</strong></td>
+                <td>Revocation and upgrades are gated by one key. Multi-party control is left to the deployment.</td></tr>
             <tr><td><strong>An operator key can only deny, never grant</strong></td>
-                <td>A leaked operator key can revoke an address. It cannot mint claims — revocation only ever takes them away.</td></tr>
+                <td>The admin can revoke a record but cannot create one; only a verified proof writes claims.</td></tr>
           </tbody>
         </table>
         </div>
