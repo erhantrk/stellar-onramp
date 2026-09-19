@@ -16,8 +16,9 @@
  * mock provider's verdict, issues a real BBS+ credential, derives a proof, and submits
  * `attest_bbs` to Stellar testnet from the deployer account.
  *
- * Accounts live in the data directory (`PORTAL_DATA_DIR`, default `scripts/.demo-data/`).
- * Sign-in sessions, runs and the gateway's own stores are per-process.
+ * Durable state lives in the data directory (`PORTAL_DATA_DIR`, default `scripts/.demo-data/`):
+ * accounts, holder-side credentials, the revocation-index counter and the status list. Sign-in
+ * sessions, runs and the gateway's own session store are per-process.
  *
  * Environment: `PORT`, `GATEWAY_PORT`, `STELLARONRAMP_DEPLOYER_SECRET` (else the stellar CLI
  * alias `STELLAR_ALIAS`), `PORTAL_DATA_DIR`, `PORTAL_RP_ID` (WebAuthn relying-party id for the
@@ -333,7 +334,8 @@ async function main(): Promise<void> {
   const { generateIssuerKeyPair } = await import('@stellaronramp/identity');
   const { createMockKyc } = await import('./demo/mock-kyc.js');
   const { runDemo, runOnboardingPipeline, readOnChainRecord } = await import('./demo/demo-flow.js');
-  const { InMemoryRevocationIndexAllocator } = await import('@stellaronramp/gateway');
+  const { JsonFileCredentialStore, JsonFileRevocationIndexAllocator, JsonFileStatusListStore } =
+    await import('./onboard/durable.js');
   const { portalWalletMinter } = await import('./onboard/wallet.js');
 
   const testnet = readDeployments();
@@ -377,10 +379,9 @@ async function main(): Promise<void> {
   const SESSION_JWT_AUDIENCE = 'stellaronramp-demo';
 
   mkdirSync(DATA_DIR, { recursive: true });
-  const revocationIndexes = new InMemoryRevocationIndexAllocator();
-  // Nothing is revoked in the demo, so the published list is empty; a durable store replaces this
-  // the moment revocation has a UI.
-  const statusList = { revokedIndexes: (): readonly number[] => [] };
+  const revocationIndexes = new JsonFileRevocationIndexAllocator(join(DATA_DIR, 'revocation-index.json'));
+  const credentials = new JsonFileCredentialStore(join(DATA_DIR, 'credentials.json'));
+  const statusList = new JsonFileStatusListStore(join(DATA_DIR, 'status-list.json'));
 
   console.warn(
     '[demo-web] demo configuration:\n' +
@@ -450,6 +451,7 @@ async function main(): Promise<void> {
     issuerSecretKey: issuerKeys.secretKey,
     kyc,
     approveSession: (sessionId) => sessionStore.setStatus(sessionId, 'approved'),
+    credentialStore: credentials,
     now: () => Math.floor(Date.now() / 1000),
   };
 
@@ -466,7 +468,8 @@ async function main(): Promise<void> {
     explorerBase: deps.explorerBase,
   });
   console.log(
-    `[demo-web] partner portal: ${accounts.size} account(s) in ${DATA_DIR}\n` +
+    `[demo-web] partner portal: ${accounts.size} account(s) in ${DATA_DIR}, ` +
+      `${credentials.size} stored credential(s), next revocation index ${revocationIndexes.next}\n` +
       `[demo-web] open http://127.0.0.1:${PORT}/portal` +
       (chainEnabled ? '' : '  (chain half disabled)'),
   );

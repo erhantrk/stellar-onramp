@@ -1,7 +1,7 @@
 /**
  * The onboarding pipeline the partner portal runs for one wallet:
  *
- *   session -> provider verdict -> claim set -> BBS+ credential
+ *   session -> provider verdict -> claim set -> BBS+ credential -> holder custody
  *     -> selective-disclosure proof -> PII scan -> issuer preflight -> attest_bbs -> read back
  *
  * The provider is the in-process mock (`mock-kyc.ts`); its verdict is recorded against the
@@ -26,6 +26,7 @@ import {
   serializeProof,
 } from '@stellaronramp/identity';
 import type { SerializedCredential } from '@stellaronramp/identity';
+import type { CredentialStore } from '@stellaronramp/sdk';
 import {
   CLAIM_OVER_18,
   CLAIM_OVER_21,
@@ -81,6 +82,8 @@ export interface DemoDeps {
   /** Mark a gateway session approved: the provider's verdict reaching the issuer. */
   approveSession: (sessionId: string) => void;
   now: () => number;
+  /** Holder-side custody for the credential and its subject-binding salt. */
+  credentialStore?: CredentialStore;
 }
 
 export interface OnboardingResult {
@@ -342,9 +345,29 @@ async function runApprovedPath(deps: DemoDeps, args: RunContext): Promise<Onboar
     data: { claimBitmap, revocationIndex, attributes: CLAIM_SPECS.length },
   });
 
-  /* --- 5. selective-disclosure proof ------------------------------------ */
+  /* --- 5. holder custody ------------------------------------------------ */
 
   const credential = deserializeCredential(serialized);
+  if (deps.credentialStore !== undefined) {
+    await deps.credentialStore.put({
+      credential,
+      subjectBindingSalt: Uint8Array.from(Buffer.from(saltHex, 'hex')),
+      walletAddress: cAddr,
+      storedAt: deps.now(),
+    });
+    await emit({
+      id: 'custody',
+      title: 'Store the credential holder-side',
+      detail:
+        'The credential and its 32-byte subject-binding salt went into the holder store keyed by ' +
+        'the wallet address. With them the holder can derive a fresh proof later without being ' +
+        're-verified.',
+      status: 'ok',
+      data: { wallet: cAddr, saltBytes: 32 },
+    });
+  }
+
+  /* --- 6. selective-disclosure proof ------------------------------------ */
 
   const binding = {
     nonce: randomNonce(),
@@ -374,7 +397,7 @@ async function runApprovedPath(deps: DemoDeps, args: RunContext): Promise<Onboar
     },
   });
 
-  /* --- 6. PII scan ------------------------------------------------------ */
+  /* --- 7. PII scan ------------------------------------------------------ */
 
   const serializedProof = serializeProof(proof);
   const wire = Buffer.from(JSON.stringify(serializedProof), 'utf8');
