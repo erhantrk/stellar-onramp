@@ -92,6 +92,8 @@ The partner portal (`/portal`) walks one person through onboarding:
   demo server.
 - Every deployed wasm is fetched back with `stellar contract fetch` and compared byte for byte
   with the local build; hashes and deploy transactions are in `deployments.json`.
+- Built with the Stellar CLI (contract build, deploy, invoke, fetch), `@stellar/stellar-sdk`,
+  and the Stellar Skills resources for smart wallets and Soroban authorization.
 
 ## Key design decisions
 
@@ -157,6 +159,16 @@ trusted setup.
 | Onramp | Claim record after one in-contract BBS+ verification: booleans such as `over18`, `notSanctioned`, bound to the wallet | The issuer's BBS+ public key and the pairing check | None in the credential, the proof or the chain |
 
 Sources are each project's repository or the SEP text as read on 2026-09-19.
+
+## What comes next
+
+- Replace the mocked provider with a real KYC vendor behind the `KycProvider` seam; the credential
+  and contract paths do not change.
+- Move the demo's server-side authenticator into the browser so the passkey is the person's own.
+- A revocation flow in the portal (the contract and the status list already support it).
+- Take the gate to mainnet behind a multi-party admin key.
+
+The intended path is the Stellar Community Fund (SCF / InstaAwards).
 
 ## Run it locally
 
