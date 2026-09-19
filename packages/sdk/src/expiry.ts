@@ -15,7 +15,7 @@
  */
 
 import { PROOF_MAX_WINDOW } from '@stellaronramp/identity';
-import { LEDGER_SECONDS } from '@stellaronramp/gateway';
+import { MAX_EXPIRY_HORIZON } from '@stellaronramp/gateway';
 
 export class ExpiryError extends Error {
   override readonly name = 'ExpiryError';
@@ -68,8 +68,16 @@ export async function ledgerExpiryFor(
 }
 
 /**
- * The RECORD's `expires_at`. A credential is issued for a lifetime the gateway chooses, and the
- * caller passes that lifetime in ledgers.
+ * The RECORD's `expires_at`, in LEDGER-SEQUENCE units — the same clock the contract checks it
+ * against: `attest_bbs` refuses `expires_at < seq` with `Expired` and `expires_at - seq >
+ * MAX_EXPIRY_HORIZON` with `ExpiryTooFar` (`contracts/kyc-gate/src/lib.rs:1081-1087`, mirrored on
+ * ~1.79e9 minus a ~4.2M ledger is far beyond the horizon — and the first revision of this helper
+ * shipped exactly that bug, green suite and all (its tests asserted the helper against its own
+ * units, and the live-check script bypassed it with a literal `seq + 100_000`). Both harnesses
+ *
+ * to the binding's `ledgerExpiry` was considered and REJECTED as incoherent — ~1-day proof
+ * freshness vs ~90-day record lifetime; do not re-open). This helper only caps the record's lead
+ * over the current ledger at `MAX_EXPIRY_HORIZON` so it can never be refused on submission.
  */
 export async function recordExpiresAtFor(
   source: LatestLedgerSource,
@@ -84,5 +92,7 @@ export async function recordExpiresAtFor(
   if (!Number.isSafeInteger(sequence) || sequence < 0) {
     throw new ExpiryError(`ledger source returned an unusable sequence: ${String(sequence)}`);
   }
-  return Math.floor(Date.now() / 1000) + ledgersAhead * LEDGER_SECONDS;
+  // Exactly the contract's own bound: `expires_at - seq > MAX_EXPIRY_HORIZON` refuses, so capping
+  // the lead AT the horizon is the widest value the chain accepts.
+  return sequence + Math.min(ledgersAhead, MAX_EXPIRY_HORIZON);
 }
