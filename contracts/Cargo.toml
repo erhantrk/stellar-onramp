@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["kyc-registry"]
+members = ["kyc-registry", "kyc-gate"]
 
 [workspace.dependencies]
 # Matches live mainnet + testnet Protocol 27. Do NOT trust `stellar contract init`,

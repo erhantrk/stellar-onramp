@@ -1,0 +1,425 @@
+#![no_std]
+#![allow(clippy::too_many_arguments)]
+//! BBS+ selective-disclosure verifier with a cached claim record per subject.
+//!
+//! Verifying a BBS+ proof on chain costs on the order of 10^8 instructions, and the network
+//! caps a ledger at 580M, so it cannot be done on every transfer. The contract therefore
+//! verifies a proof ONCE, at onboarding (`attest_bbs`), and stores a compact `ClaimRecord`
+//! that any relying contract can read for a few thousand instructions (`check`).
+//!
+//! The verifier itself (`bbs.rs`) is written directly against the BLS12-381 host functions;
+//! no pure-wasm pairing library is involved.
+
+use soroban_sdk::{
+    contract, contractclient, contracterror, contractevent, contractimpl, contracttype, Address,
+    Bytes, BytesN, Env, Vec,
+};
+
+mod bbs;
+
+/// Claims are a bitmap so a relying contract's check is one storage load and one AND.
+/// Bit positions are frozen: never renumber, only append.
+pub const CLAIM_OVER_18: u32 = 1 << 0;
+pub const CLAIM_OVER_21: u32 = 1 << 1;
+pub const CLAIM_NOT_SANCTIONED: u32 = 1 << 2;
+pub const CLAIM_JURISDICTION_OK: u32 = 1 << 3;
+
+/// Persistent-entry TTL policy, tuned to mainnet minimums (testnet's are far shorter).
+/// A record is bumped back to ~120 days whenever it drops below ~60.
+const CLAIM_TTL_THRESHOLD: u32 = 1_036_800;
+const CLAIM_TTL_EXTEND_TO: u32 = 2_073_600;
+
+/// How far ahead a record may expire: it may never outlive the TTL its own entry is
+/// bumped to.
+const MAX_EXPIRY_HORIZON: u32 = CLAIM_TTL_EXTEND_TO;
+
+#[contracttype]
+#[derive(Clone)]
+pub enum DataKey {
+    Admin,
+    Registry,
+    /// subject -> ClaimRecord
+    Claims(Address),
+}
+
+/// A `ClaimRecord` with `claims == 0` is a revocation tombstone, not an attestation.
+///
+/// The struct is stored as a map keyed by field name, so adding or renaming a field makes
+/// every existing record fail to decode. Migrate before changing it.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClaimRecord {
+    pub claims: u32,
+    /// Ledger sequence at which this record stops being honoured.
+    pub expires_at: u32,
+    pub issuer_id: BytesN<32>,
+    /// Ledger sequence the record was written at. Audit trail only.
+    pub issued_at: u32,
+    /// Revocations this subject has ever had. Monotone, never reset; a proof is accepted only
+    /// at the epoch it was derived for, so a proof made before a revocation can never come
+    /// back after it.
+    pub revocation_epoch: u32,
+    /// Index of the credential behind this record in the issuer's status list. An audit link
+    /// between the on-chain record and the off-chain revocation list; the contract never
+    /// reads it back to decide anything.
+    pub revocation_index: u32,
+}
+
+/// The proof in Soroban's uncompressed wire form:
+///
+///   a_bar(96) || b_bar(96) || d(96) || e_hat(32) || r1_hat(32) || r3_hat(32)
+///     || m_hat(U × 32) || challenge(32)
+///
+/// `m_hat` holds one response per undisclosed message, in ascending hidden-index order. The
+/// points are uncompressed because the host offers no decompression; the SDK decompresses
+/// before submitting.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BbsProof {
+    pub a_bar: BytesN<96>,
+    pub b_bar: BytesN<96>,
+    pub d: BytesN<96>,
+    pub e_hat: BytesN<32>,
+    pub r1_hat: BytesN<32>,
+    pub r3_hat: BytesN<32>,
+    pub m_hat: Vec<BytesN<32>>,
+    pub challenge: BytesN<32>,
+}
+
+/// The `kyc-registry` error codes this contract can observe on a cross-contract call.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum RegistryError {
+    AlreadyInitialized = 1,
+    NotInitialized = 2,
+    IssuerNotFound = 3,
+    IssuerAlreadyRegistered = 4,
+}
+
+/// The one `kyc-registry` entry point the verifier needs: the issuer's uncompressed G2 public
+/// key, returned only while the issuer is registered, unrevoked and unexpired.
+#[contractclient(name = "RegistryClient")]
+pub trait RegistryTrait {
+    fn active_key(env: &Env, issuer_id: BytesN<32>) -> Result<BytesN<192>, RegistryError>;
+}
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum Error {
+    AlreadyInitialized = 1,
+    NotInitialized = 2,
+    NoClaimRecord = 3,
+    Expired = 4,
+    InvalidProof = 6,
+    UntrustedIssuer = 7,
+    /// An older attestation was replayed over a fresher live record.
+    StaleAttestation = 10,
+    /// An empty bitmap attests nothing and would only ever serve to wipe a live record.
+    EmptyClaims = 12,
+    /// `expires_at` or `ledger_expiry` is further ahead than the storage lifetimes allow.
+    ExpiryTooFar = 13,
+    /// The subject carries a revocation tombstone and the attestation does not clear it.
+    SubjectRevoked = 14,
+    /// The proof was derived for a `revocation_epoch` that is not the subject's current one.
+    RevocationEpochMismatch = 15,
+}
+
+/// Emitted on every successful attestation.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Attested {
+    #[topic]
+    pub subject: Address,
+    pub claims: u32,
+    pub expires_at: u32,
+    pub issuer_id: BytesN<32>,
+}
+
+fn hex32(env: &Env, bytes: &[u8; 32]) -> Bytes {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = Bytes::new(env);
+    for b in bytes {
+        out.push_back(HEX[(b >> 4) as usize]);
+        out.push_back(HEX[(b & 0x0f) as usize]);
+    }
+    out
+}
+
+fn decimal(env: &Env, mut v: u32) -> Bytes {
+    if v == 0 {
+        return Bytes::from_slice(env, b"0");
+    }
+    let mut buf = [0u8; 10];
+    let mut i = 10;
+    while v > 0 {
+        i -= 1;
+        buf[i] = b'0' + (v % 10) as u8;
+        v /= 10;
+    }
+    Bytes::from_slice(env, &buf[i..])
+}
+
+fn bytes_eq(a: &Bytes, b: &Bytes) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    for i in 0..a.len() {
+        if a.get(i) != b.get(i) {
+            return false;
+        }
+    }
+    true
+}
+
+/// True iff schema index `idx` is disclosed and its message equals `expected`.
+fn disclosed_is(
+    indexes: &Vec<u32>,
+    messages: &Vec<Bytes>,
+    idx: u32,
+    expected: &Bytes,
+) -> bool {
+    for i in 0..indexes.len() {
+        if indexes.get(i).unwrap() == idx {
+            return bytes_eq(&messages.get(i).unwrap(), expected);
+        }
+    }
+    false
+}
+
+fn bump_instance(env: &Env) {
+    env.storage()
+        .instance()
+        .extend_ttl(CLAIM_TTL_THRESHOLD, CLAIM_TTL_EXTEND_TO);
+}
+
+fn require_admin(env: &Env) -> Result<Address, Error> {
+    let admin: Address = env
+        .storage()
+        .instance()
+        .get(&DataKey::Admin)
+        .ok_or(Error::NotInitialized)?;
+    admin.require_auth();
+    Ok(admin)
+}
+
+#[contract]
+pub struct KycGate;
+
+#[contractimpl]
+impl KycGate {
+    pub fn init(env: Env, admin: Address, registry: Address) -> Result<(), Error> {
+        if env.storage().instance().has(&DataKey::Admin) {
+            return Err(Error::AlreadyInitialized);
+        }
+        admin.require_auth();
+        env.storage().instance().set(&DataKey::Admin, &admin);
+        env.storage().instance().set(&DataKey::Registry, &registry);
+        bump_instance(&env);
+        Ok(())
+    }
+
+    /// Verify a BBS+ selective-disclosure proof on chain and cache the granted claims.
+    ///
+    /// The issuer's public key is fetched from `kyc-registry`, so only a registered, live
+    /// issuer is trusted. The proof must disclose the issuer id and revocation index it was
+    /// issued with, and every claim bit requested must be backed by a disclosed `=true`
+    /// attribute. The presentation header the proof was bound to is supplied by the caller and
+    /// checked by the pairing.
+    ///
+    /// Returns the claims written.
+    pub fn attest_bbs(
+        env: Env,
+        subject: Address,
+        issuer_id: BytesN<32>,
+        claims: u32,
+        expires_at: u32,
+        revocation_epoch: u32,
+        revocation_index: u32,
+        proof: BbsProof,
+        disclosed_indexes: Vec<u32>,
+        disclosed_messages: Vec<Bytes>,
+        header: Bytes,
+        presentation_header: Bytes,
+    ) -> Result<u32, Error> {
+        if claims == 0 {
+            return Err(Error::EmptyClaims);
+        }
+
+        let seq = env.ledger().sequence();
+        if expires_at < seq {
+            return Err(Error::Expired);
+        }
+        if expires_at - seq > MAX_EXPIRY_HORIZON {
+            return Err(Error::ExpiryTooFar);
+        }
+        if disclosed_indexes.len() != disclosed_messages.len() {
+            return Err(Error::InvalidProof);
+        }
+
+        // Cheap checks first; the pairing is the expensive part and runs last.
+        let registry: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Registry)
+            .ok_or(Error::NotInitialized)?;
+        let pubkey_g2: BytesN<192> = match RegistryClient::new(&env, &registry)
+            .try_active_key(&issuer_id)
+        {
+            Ok(Ok(pk)) => pk,
+            _ => return Err(Error::UntrustedIssuer),
+        };
+        // Uncompressed encoding only: the top three flag bits must be clear.
+        if pubkey_g2.to_array()[0] & 0xE0 != 0 {
+            return Err(Error::InvalidProof);
+        }
+
+        let expected_issuer = {
+            let mut m = Bytes::from_slice(&env, b"issuerId=");
+            m.append(&hex32(&env, &issuer_id.to_array()));
+            m
+        };
+        let expected_rev_index = {
+            let mut m = Bytes::from_slice(&env, b"revocationIndex=");
+            m.append(&decimal(&env, revocation_index));
+            m
+        };
+        if !disclosed_is(&disclosed_indexes, &disclosed_messages, 1, &expected_issuer)
+            || !disclosed_is(&disclosed_indexes, &disclosed_messages, 2, &expected_rev_index)
+        {
+            return Err(Error::InvalidProof);
+        }
+
+        // Claim bits are granted only from disclosed `=true` attributes at their schema index.
+        let mut derived = 0u32;
+        if disclosed_is(
+            &disclosed_indexes,
+            &disclosed_messages,
+            6,
+            &Bytes::from_slice(&env, b"over18=true"),
+        ) {
+            derived |= CLAIM_OVER_18;
+        }
+        if disclosed_is(
+            &disclosed_indexes,
+            &disclosed_messages,
+            7,
+            &Bytes::from_slice(&env, b"over21=true"),
+        ) {
+            derived |= CLAIM_OVER_21;
+        }
+        if disclosed_is(
+            &disclosed_indexes,
+            &disclosed_messages,
+            8,
+            &Bytes::from_slice(&env, b"notSanctioned=true"),
+        ) {
+            derived |= CLAIM_NOT_SANCTIONED;
+        }
+        if disclosed_is(
+            &disclosed_indexes,
+            &disclosed_messages,
+            10,
+            &Bytes::from_slice(&env, b"jurisdictionOk=true"),
+        ) {
+            derived |= CLAIM_JURISDICTION_OK;
+        }
+        if claims & !derived != 0 {
+            return Err(Error::InvalidProof);
+        }
+
+        let pk = soroban_sdk::crypto::bls12_381::Bls12381G2Affine::from_bytes(pubkey_g2.clone());
+        if !bbs::verify_bbs_proof(
+            &env,
+            &pk,
+            &header,
+            &presentation_header,
+            &disclosed_indexes,
+            &disclosed_messages,
+            &proof,
+        ) {
+            return Err(Error::InvalidProof);
+        }
+
+        let claims_key = DataKey::Claims(subject.clone());
+        let prev: Option<ClaimRecord> = env.storage().persistent().get(&claims_key);
+
+        let current_epoch = match &prev {
+            Some(p) => p.revocation_epoch,
+            None => 0,
+        };
+        if revocation_epoch != current_epoch {
+            return Err(Error::RevocationEpochMismatch);
+        }
+
+        // A live record (or a tombstone) is only ever replaced by a fresher one.
+        if let Some(prev) = prev {
+            let prev_revoked = prev.claims == 0;
+            let prev_live = seq <= prev.expires_at || prev_revoked;
+            if prev_live && expires_at <= prev.expires_at {
+                return Err(if prev_revoked {
+                    Error::SubjectRevoked
+                } else {
+                    Error::StaleAttestation
+                });
+            }
+        }
+
+        let record = ClaimRecord {
+            claims,
+            expires_at,
+            issuer_id,
+            issued_at: seq,
+            revocation_epoch: current_epoch,
+            revocation_index,
+        };
+        env.storage().persistent().set(&claims_key, &record);
+        env.storage()
+            .persistent()
+            .extend_ttl(&claims_key, CLAIM_TTL_THRESHOLD, CLAIM_TTL_EXTEND_TO);
+        bump_instance(&env);
+
+        Attested {
+            subject,
+            claims,
+            expires_at,
+            issuer_id: record.issuer_id,
+        }
+        .publish(&env);
+
+        Ok(claims)
+    }
+
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
+        require_admin(&env)?;
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
+        bump_instance(&env);
+        Ok(())
+    }
+
+    /// The read every relying contract makes: is `claim_bit` granted for `subject` right now?
+    /// A missing record, an expired record and a tombstone all answer `false`.
+    pub fn check(env: Env, subject: Address, claim_bit: u32) -> bool {
+        if claim_bit == 0 {
+            return false;
+        }
+        let rec: ClaimRecord = match env.storage().persistent().get(&DataKey::Claims(subject)) {
+            Some(r) => r,
+            None => return false,
+        };
+        if env.ledger().sequence() > rec.expires_at {
+            return false;
+        }
+        rec.claims & claim_bit == claim_bit
+    }
+
+    pub fn claim_record(env: Env, subject: Address) -> Result<ClaimRecord, Error> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Claims(subject))
+            .ok_or(Error::NoClaimRecord)
+    }
+}
+
+mod test;

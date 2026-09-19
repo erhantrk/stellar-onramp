@@ -1070,6 +1070,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "kyc-gate"
+version = "0.1.0"
+dependencies = [
+ "kyc-registry",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "kyc-registry"
 version = "0.1.0"
 dependencies = [
