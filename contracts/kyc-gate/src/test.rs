@@ -111,6 +111,36 @@ fn init_requires_auth_from_the_declared_admin() {
 // floor is gone, so the tombstone's `expires_at` is simply the ledger each revocation
 // happened at, and only the epoch is monotonic.
 #[test]
+fn re_revoking_pushes_the_revocation_epoch_forward() {
+    let env = Env::default();
+    let client = setup(&env);
+    let subject = Address::generate(&env);
+
+    client.revoke(&subject);
+    let first = client.claim_record(&subject);
+    assert_eq!(first.expires_at, START_SEQ);
+    assert_eq!(first.revocation_epoch, 1);
+
+    env.ledger().set_sequence_number(START_SEQ + 1_000);
+    client.revoke(&subject);
+    let second = client.claim_record(&subject);
+    assert_eq!(second.expires_at, START_SEQ + 1_000);
+    assert_eq!(
+        second.revocation_epoch, 2,
+        "a second revocation must invalidate anything signed for the first"
+    );
+    assert!(!client.check(&subject, &CLAIM_OVER_18));
+}
+
+// --- 9. cost ----------------------------------------------------------------------
+
+/// ATTACK 5. An attestation may be dated up to `MAX_EXPIRY_HORIZON` ahead and its record's
+/// entry is bumped to `CLAIM_TTL_EXTEND_TO`, so the two end at the SAME ledger with nothing to
+/// re-extend the entry. Past that point the guarantee is the ledger's, not the contract's: the
+/// entry is archived and any access to it fails the transaction until someone pays to restore
+/// it. The test env does not model archival, so this pins the arithmetic rather than the
+/// archival behaviour, which is the honest limit of what can be asserted here.
+#[test]
 fn attestation_horizon_and_storage_lifetime_end_together() {
     // `tombstone_floor_and_storage_lifetime_end_together`. The floor this test was named
     // after no longer exists, so the coupling it pinned (floor == entry lifetime) is vacuous.
@@ -134,6 +164,70 @@ fn attestation_horizon_and_storage_lifetime_end_together() {
     assert_eq!(MAX_EXPIRY_HORIZON, 2_073_600, "constant moved — re-derive both bounds above");
 }
 
+/// The admin `upgrade` inherits from `set_admin`, so a handed-over contract is upgradable by
+/// the new admin and NOT by the old one. Written because "who can replace the code" is the
+/// highest-consequence question this contract answers.
+#[test]
+fn upgrade_follows_the_admin_across_a_handover() {
+    let env = Env::default();
+    env.ledger().set_sequence_number(START_SEQ);
+    let admin = Address::generate(&env);
+    let new_admin = Address::generate(&env);
+    let registry = Address::generate(&env);
+    let id = env.register(KycGate, ());
+    let client = KycGateClient::new(&env, &id);
+
+    env.mock_all_auths();
+    client.init(&admin, &registry);
+    client.set_admin(&new_admin);
+
+    let wasm = std::fs::read(std::concat!(
+        std::env!("CARGO_MANIFEST_DIR"),
+        "/../target/wasm32v1-none/release/kyc_registry.wasm"
+    ))
+    .expect("run `stellar contract build` first: this test needs a real wasm to upload");
+    let wasm_hash = env
+        .deployer()
+        .upload_contract_wasm(soroban_sdk::Bytes::from_slice(&env, &wasm));
+
+    // The OLD admin authorising alone is now a stranger.
+    env.mock_auths(&[MockAuth {
+        address: &admin,
+        invoke: &MockAuthInvoke {
+            contract: &id,
+            fn_name: "upgrade",
+            args: (wasm_hash.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(matches!(client.try_upgrade(&wasm_hash), Err(Err(_))));
+
+    // The new admin can.
+    env.mock_auths(&[MockAuth {
+        address: &new_admin,
+        invoke: &MockAuthInvoke {
+            contract: &id,
+            fn_name: "upgrade",
+            args: (wasm_hash.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    client.upgrade(&wasm_hash);
+}
+
+// --- 12. the host TTL rule -------------------------------------------------------------
+
+
+/// Locates `"<key>": <u32>` inside a JSON text slice and returns the number. A missing key, a
+/// non-numeric value, or a STRING-TYPED value is a PANIC, not a skip — "the pin could not be read"
+/// must fail the suite, and a skipped assertion is worse than none.
+///
+/// The string-typed case is load-bearing: the previous version scanned for the first ASCII digit
+/// anywhere after the key, so `"maxEntryTtl": "3110400"` (a JSON string) was silently read as
+/// `3110400` and the pin stayed green while the TS pin threw. A wrong-typed value must fail the
+/// Rust side the same way, because deployments.json is only ever a number via `JSON.stringify` —
+/// a quoted value means a human edited or hand-crafted the file, which is exactly what this pin
+/// exists to catch.
 fn json_u32(haystack: &str, key: &str) -> u32 {
     json_u32_in("deployments.json", haystack, key)
 }
@@ -891,6 +985,55 @@ fn attest_bbs_nonce_tombstone_outlives_the_freshness_window() {
 /// returned `Ok` and the revoked subject was live again with `check(OVER_18) == true`.
 ///
 /// It now dies on the freshness check, and the compliance tombstone is still the record.
+#[test]
+fn attest_bbs_replay_after_the_tombstone_cannot_resurrect_a_revoked_subject() {
+    let env = Env::default();
+    let (gate, issuer_id, _) = setup_bbs(&env);
+    let subject = bound_subject(&env);
+
+    attest_gate_onramp(&env, &gate, &subject);
+    gate.revoke(&subject);
+    assert!(!gate.check(&subject, &CLAIM_OVER_18));
+    assert_eq!(gate.claim_record(&subject).revocation_epoch, 1);
+
+    // Far past both the tombstone's TTL and the proof's freshness window.
+    env.ledger().set_sequence_number(START_SEQ + 60_000);
+    assert!(
+        !env.as_contract(&gate.address, || env
+            .storage()
+            .temporary()
+            .has(&DataKey::Nonce(nonce_of(&env, NONCE_HEX)))),
+        "the nonce tombstone should be long gone by here — otherwise this proves nothing"
+    );
+
+    let res = gate.try_attest_bbs(
+        &subject,
+        &issuer_id,
+        &(CLAIM_OVER_18 | CLAIM_NOT_SANCTIONED),
+        &(START_SEQ + 110_000), // later than the revocation ledger, so `prev_revoked` lets it by
+        &1u32,                  // the current epoch, read straight off `claim_record()`
+        &4242u32,
+        &gate_onramp_proof(&env),
+        &gate_onramp_indexes(&env),
+        &gate_onramp_messages(&env),
+        &soroban_sdk::Bytes::from_slice(&env, HEADER.as_bytes()),
+        &nonce_of(&env, NONCE_HEX),
+        &LEDGER_EXPIRY,
+    );
+    assert_eq!(res, Err(Ok(Error::Expired)));
+
+    let rec = gate.claim_record(&subject);
+    assert_eq!(rec.claims, 0, "the revocation tombstone must still be the record");
+    assert_eq!(rec.revocation_epoch, 1);
+    assert!(!gate.check(&subject, &CLAIM_OVER_18));
+}
+
+/// The frozen proof is bound to ONE gate contract id. Deploy the identical wasm anywhere else and
+/// it stops verifying — `env.current_contract_address()` is an input to the derivation.
+///
+/// This is also what makes the regenerated fixtures safe to keep in the repo: they are bound to
+/// `TEST_GATE_CONTRACT_ID`, which is a `sha256`-derived unit-test address and not the deployed
+/// gate, so the vectors can no longer be replayed against a live deployment at all.
 #[test]
 fn attest_bbs_refuses_the_frozen_proof_at_a_different_gate_address() {
     let env = Env::default();

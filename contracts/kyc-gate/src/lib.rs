@@ -165,6 +165,27 @@ pub struct Attested {
     pub issuer_id: BytesN<32>,
 }
 
+/// Emitted on every revocation. `revocation_epoch` is the epoch a later proof must be
+/// derived for to be accepted for this subject.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Revoked {
+    #[topic]
+    pub subject: Address,
+    pub revoked_at: u32,
+    pub revocation_epoch: u32,
+}
+
+/// Emitted on admin handover.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AdminChanged {
+    #[topic]
+    pub old_admin: Address,
+    #[topic]
+    pub new_admin: Address,
+}
+
 fn append_len_prefixed(msg: &mut Bytes, field: Bytes) {
     msg.extend_from_array(&field.len().to_be_bytes());
     msg.append(&field);
@@ -262,6 +283,51 @@ fn bump_instance(env: &Env) {
     env.storage()
         .instance()
         .extend_ttl(CLAIM_TTL_THRESHOLD, CLAIM_TTL_EXTEND_TO);
+}
+
+fn read_claim(env: &Env, subject: &Address) -> Option<ClaimRecord> {
+    env.storage()
+        .persistent()
+        .get(&DataKey::Claims(subject.clone()))
+}
+
+/// Write a tombstone: claims cleared, epoch advanced. The issuer id and audit index of the
+/// previous record are preserved so the revocation stays traceable.
+fn write_tombstone(env: &Env, subject: &Address, prev: Option<ClaimRecord>) {
+    let seq = env.ledger().sequence();
+
+    let epoch = match &prev {
+        Some(p) => p.revocation_epoch.saturating_add(1),
+        None => 1,
+    };
+    let (issuer_id, revocation_index) = match prev {
+        Some(p) => (p.issuer_id, p.revocation_index),
+        None => (BytesN::from_array(env, &[0u8; 32]), 0),
+    };
+
+    let claims_key = DataKey::Claims(subject.clone());
+    env.storage().persistent().set(
+        &claims_key,
+        &ClaimRecord {
+            claims: 0,
+            expires_at: seq,
+            issuer_id,
+            issued_at: seq,
+            revocation_epoch: epoch,
+            revocation_index,
+        },
+    );
+    env.storage()
+        .persistent()
+        .extend_ttl(&claims_key, CLAIM_TTL_THRESHOLD, CLAIM_TTL_EXTEND_TO);
+    bump_instance(env);
+
+    Revoked {
+        subject: subject.clone(),
+        revoked_at: seq,
+        revocation_epoch: epoch,
+    }
+    .publish(env);
 }
 
 fn require_admin(env: &Env) -> Result<Address, Error> {
@@ -484,6 +550,28 @@ impl KycGate {
         .publish(&env);
 
         Ok(claims)
+    }
+
+    /// Admin revocation: writes a tombstone and advances the subject's epoch, so every proof
+    /// derived before this call is dead. There is no un-revoke; a subject is re-onboarded.
+    pub fn revoke(env: Env, subject: Address) -> Result<(), Error> {
+        require_admin(&env)?;
+        let prev = read_claim(&env, &subject);
+        write_tombstone(&env, &subject, prev);
+        Ok(())
+    }
+
+    pub fn set_admin(env: Env, new_admin: Address) -> Result<(), Error> {
+        let old_admin = require_admin(&env)?;
+        new_admin.require_auth();
+        env.storage().instance().set(&DataKey::Admin, &new_admin);
+        bump_instance(&env);
+        AdminChanged {
+            old_admin,
+            new_admin,
+        }
+        .publish(&env);
+        Ok(())
     }
 
     pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
