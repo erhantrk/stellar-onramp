@@ -1,0 +1,43 @@
+{
+  "testnet": {
+    "networkPassphrase": "Test SDF Network ; September 2015",
+    "deployer": "GAOS3CYFTRFSBSVN4GORA3PSOIJICMMHDCRRQEOQDS42ASC4V52BXPE3",
+    "deployerAlias": "stellaronramp-dev",
+    "networkConfig": {
+      "maxEntryTtl": 3110400,
+      "minTemporaryTtl": 720,
+      "minPersistentTtl": 120960,
+      "rpcUrl": "https://soroban-testnet.stellar.org"
+    },
+    "contracts": {
+      "kyc-registry": {
+        "id": ""
+      },
+      "kyc-gate": {
+        "id": ""
+      },
+      "trex-wrap": {
+        "id": ""
+      }
+    }
+  },
+  "mainnet": {
+    "networkConfig": {
+      "maxEntryTtl": 3110400,
+      "minTemporaryTtl": 17280,
+      "minPersistentTtl": 2073600,
+      "rpcUrl": "https://mainnet.sorobanrpc.com"
+    },
+    "contracts": {
+      "kyc-registry": {
+        "id": ""
+      },
+      "kyc-gate": {
+        "id": ""
+      },
+      "trex-wrap": {
+        "id": ""
+      }
+    }
+  }
+}
