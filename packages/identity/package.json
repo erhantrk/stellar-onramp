@@ -2,7 +2,7 @@
   "name": "@stellaronramp/identity",
   "version": "0.1.0",
   "type": "module",
-  "description": "BBS+ credentials for Stellar: the schema, the presentation binding and the BBS+ generators.",
+  "description": "BBS+ credentials for Stellar: issue, selectively disclose, verify, revoke via a Bitstring Status List.",
   "license": "MIT",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,16 +12,20 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./fixtures/vectors.json": "./fixtures/vectors.json",
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
+    "fixtures",
     "README.md"
   ],
   "sideEffects": false,
   "scripts": {
     "build": "tsc --build",
-    "typecheck": "tsc --build"
+    "typecheck": "tsc --build && tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "vectors": "node --experimental-strip-types scripts/gen-vectors.ts"
   },
   "dependencies": {
     "@digitalbazaar/bbs-signatures": "3.1.0",

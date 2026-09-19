@@ -1,0 +1,963 @@
+{
+  "$comment": "Known-answer vectors for @stellaronramp/identity. The Rust kyc-gate verifier is tested against these EXACT bytes. Keys and the signature are reproducible from issuer.seed; proofs are randomised by ProofGen and are therefore FROZEN, not reproducible.",
+  "version": 1,
+  "generator": "@stellaronramp/identity scripts/gen-vectors.ts",
+  "ciphersuite": "BLS12-381-SHA-256",
+  "encoding": "all byte fields are lowercase hex, no 0x prefix",
+  "layout": {
+    "$comment": "Soroban host rejects the compression flag and provides no decompression host function. The SDK decompresses; these are the exact forms the host accepts.",
+    "g1Compressed": 48,
+    "g1Uncompressed": 96,
+    "g1UncompressedLayout": "be(X) || be(Y), each 48 bytes big-endian",
+    "g2Compressed": 96,
+    "g2Uncompressed": 192,
+    "g2UncompressedLayout": "be(X_c1) || be(X_c0) || be(Y_c1) || be(Y_c0), each 48 bytes big-endian",
+    "scalar": 32,
+    "scalarLayout": "big-endian integer mod r",
+    "signatureLayout": "A (48, compressed G1) || e (32, scalar) = 80 bytes",
+    "proofWireOrder": [
+      "Abar (48, compressed G1)",
+      "Bbar (48, compressed G1)",
+      "D    (48, compressed G1)",
+      "eHat (32)",
+      "r1Hat (32)",
+      "r3Hat (32)",
+      "mHat_1..mHat_U (32 each)",
+      "challenge (32)  <- LAST, after the mHat block"
+    ],
+    "proofSizeLaw": "144 + 32*(4 + U)  where U = undisclosed message count",
+    "sorobanFlatProofLayout": "abar(96) || bbar(96) || d(96) || eHat(32) || r1Hat(32) || r3Hat(32) || mHat*(32U) || challenge(32)",
+    "sorobanFlatProofSizeLaw": "288 + 32*(4 + U)"
+  },
+  "presentationBinding": {
+    "$comment": "The presentation header is DERIVED, never supplied. kyc-gate.attest_bbs recomputes it from {subject, current_contract_address, network_id, nonce, ledger_expiry} and compares nothing \u2014 there is no caller-supplied header left to compare against. src/binding.ts is the reference implementation; contracts/kyc-gate/src/lib.rs mirrors it byte for byte.",
+    "bindingDomain": "stellaronramp/presentation-binding/v1",
+    "presentationHeaderDomain": "stellaronramp/presentation-header/v1",
+    "canonicalLayout": [
+      "LP(utf8(bindingDomain))",
+      "LP(nonce)                 // 32 RAW bytes, not hex",
+      "LP(utf8(walletAddress))   // 56-char strkey",
+      "LP(utf8(contractId))      // 56-char strkey",
+      "LP(sha256(utf8(networkPassphrase)))   // == Soroban env.ledger().network_id()",
+      "LP(u32be(ledgerExpiry))"
+    ],
+    "lengthPrefix": "every field carries a 4-byte big-endian length prefix",
+    "bindingDigest": "sha256(canonical)",
+    "presentationHeader": "sha256(utf8(presentationHeaderDomain) || bindingDigest)",
+    "proofMaxWindow": 17280,
+    "proofMaxWindowRule": "kyc-gate.attest_bbs refuses ledgerExpiry - current_ledger > proofMaxWindow with ExpiryTooFar. The bound is PROOF_MAX_WINDOW == NONCE_MIN_TTL, so the consumed-nonce tombstone always outlives the freshness window and a proof can never come back after its tombstone is evicted.",
+    "testGateContractId": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+    "testGateContractIdDerivation": "StrKey.encodeContract(sha256(\"stellaronramp/test-gate/v1\"))"
+  },
+  "schema": {
+    "version": "1",
+    "attributeCount": 12,
+    "header": "stellaronramp/kyc-credential/v1",
+    "headerHex": "7374656c6c61726f6e72616d702f6b79632d63726564656e7469616c2f7631",
+    "messageEncoding": "utf8(\"<claimName>=<canonicalValue>\")",
+    "attributes": [
+      {
+        "index": 0,
+        "name": "schemaVersion",
+        "kind": "string"
+      },
+      {
+        "index": 1,
+        "name": "issuerId",
+        "kind": "hex32"
+      },
+      {
+        "index": 2,
+        "name": "revocationIndex",
+        "kind": "uint"
+      },
+      {
+        "index": 3,
+        "name": "issuedAt",
+        "kind": "uint"
+      },
+      {
+        "index": 4,
+        "name": "expiresAt",
+        "kind": "uint"
+      },
+      {
+        "index": 5,
+        "name": "subjectBinding",
+        "kind": "hex32"
+      },
+      {
+        "index": 6,
+        "name": "over18",
+        "kind": "bool"
+      },
+      {
+        "index": 7,
+        "name": "over21",
+        "kind": "bool"
+      },
+      {
+        "index": 8,
+        "name": "notSanctioned",
+        "kind": "bool"
+      },
+      {
+        "index": 9,
+        "name": "notPep",
+        "kind": "bool"
+      },
+      {
+        "index": 10,
+        "name": "jurisdictionOk",
+        "kind": "bool"
+      },
+      {
+        "index": 11,
+        "name": "livenessOk",
+        "kind": "bool"
+      }
+    ]
+  },
+  "issuer": {
+    "seed": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+    "secretKey": "648bce7736dabadba909edef6115dc23055829e0724d8653f3f99c5fd87ac0e8",
+    "publicKey": {
+      "compressed": "8caadcb6e5983f95e0f6d1255288dab820954fb4d4e78ec895cc9905d689de5880fe421611200d280431660a79a8bf810d8c7f7ac6fad85d11b1c033091f2498b27f4beee538883d9d0e988a91e088782d7c6eb9f1eab1a7edbcd8b187904237",
+      "uncompressed": "0caadcb6e5983f95e0f6d1255288dab820954fb4d4e78ec895cc9905d689de5880fe421611200d280431660a79a8bf810d8c7f7ac6fad85d11b1c033091f2498b27f4beee538883d9d0e988a91e088782d7c6eb9f1eab1a7edbcd8b18790423701d7e2b82c9c066cf905d9d8abdd61ff370daf28e6564ec02ac29b027627dc9684d8c49312ba0699d05bc74ddf4ac20d1134411e2d5146160879728e928fd9797ebf6a7441423ae5543e36d265cf60508a4234925a86840f9e3368d0b13055f6"
+    },
+    "issuerId": "a9daf8fdce22775d5d5ed973f320a91911d684a91f82e522fef26cb5120205e5"
+  },
+  "otherIssuer": {
+    "$comment": "Used only by the wrong-issuer-key negative vector.",
+    "seed": "a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf",
+    "publicKey": {
+      "compressed": "9478b44dfbe2895fd5e9fab3546756359083ac2ca323e31498ba6edc014ab637c6a255a142039a098c75465281d74cbb095e5859b31e6c4b60e9c805adc7c949543c4c4d7f9d96a35b60e5826c7a6ba323ba33c1d8e908802e562f073cdb7ebd",
+      "uncompressed": "1478b44dfbe2895fd5e9fab3546756359083ac2ca323e31498ba6edc014ab637c6a255a142039a098c75465281d74cbb095e5859b31e6c4b60e9c805adc7c949543c4c4d7f9d96a35b60e5826c7a6ba323ba33c1d8e908802e562f073cdb7ebd067ead0433ac33c01299421fe6418c05f93c2fe6764e2086e43224e2282e2365514c81efc965e515fd6853d47e39b27414f1edcd2706413158a6974bfb06bf63a585aca18159c952748408a4b4934bc7cb2a5cdc3e2cd47682b58601bf0b3b2d"
+    },
+    "issuerId": "58569322a91c0c9745cda3bcb5d7707e5172742cb6bef348cec19f5710fea70b"
+  },
+  "credential": {
+    "claims": {
+      "schemaVersion": "1",
+      "revocationIndex": 4242,
+      "issuedAt": 1767225600,
+      "expiresAt": 1782950400,
+      "subjectBinding": "3d1f2b6a9c8e4705b1d2c3a4f5e6978899aabbccddeeff001122334455667788",
+      "over18": true,
+      "over21": true,
+      "notSanctioned": true,
+      "notPep": true,
+      "jurisdictionOk": true,
+      "livenessOk": true,
+      "issuerId": "a9daf8fdce22775d5d5ed973f320a91911d684a91f82e522fef26cb5120205e5"
+    },
+    "messages": [
+      "schemaVersion=1",
+      "issuerId=a9daf8fdce22775d5d5ed973f320a91911d684a91f82e522fef26cb5120205e5",
+      "revocationIndex=4242",
+      "issuedAt=1767225600",
+      "expiresAt=1782950400",
+      "subjectBinding=3d1f2b6a9c8e4705b1d2c3a4f5e6978899aabbccddeeff001122334455667788",
+      "over18=true",
+      "over21=true",
+      "notSanctioned=true",
+      "notPep=true",
+      "jurisdictionOk=true",
+      "livenessOk=true"
+    ],
+    "messagesHex": [
+      "736368656d6156657273696f6e3d31",
+      "69737375657249643d61396461663866646365323237373564356435656439373366333230613931393131643638346139316638326535323266656632366362353132303230356535",
+      "7265766f636174696f6e496e6465783d34323432",
+      "69737375656441743d31373637323235363030",
+      "6578706972657341743d31373832393530343030",
+      "7375626a65637442696e64696e673d33643166326236613963386534373035623164326333613466356536393738383939616162626363646465656666303031313232333334343535363637373838",
+      "6f76657231383d74727565",
+      "6f76657232313d74727565",
+      "6e6f7453616e6374696f6e65643d74727565",
+      "6e6f745065703d74727565",
+      "6a7572697364696374696f6e4f6b3d74727565",
+      "6c6976656e6573734f6b3d74727565"
+    ],
+    "signature": "9073be81ae6cd46a92eddbc93b5b9be669ba299c873d6d6eb1162459892201c6014ce0523a302af45fafb299ad8ef5286e5b0413fd0205f6a8ed03ad7b0e6cf062b542597247073f8aa1271753fbe128",
+    "signatureA": {
+      "compressed": "9073be81ae6cd46a92eddbc93b5b9be669ba299c873d6d6eb1162459892201c6014ce0523a302af45fafb299ad8ef528",
+      "uncompressed": "1073be81ae6cd46a92eddbc93b5b9be669ba299c873d6d6eb1162459892201c6014ce0523a302af45fafb299ad8ef528027ae844d82e26530fe84a2bc07f66b00b2003f73903caa96e984bad9fa84cd3b22460588491a8cf00d6fd283a441934"
+    },
+    "signatureE": "6e5b0413fd0205f6a8ed03ad7b0e6cf062b542597247073f8aa1271753fbe128",
+    "expect": {
+      "verifySignature": true
+    }
+  },
+  "cases": [
+    {
+      "name": "standard-onramp",
+      "note": "over18 AND notSanctioned \u2014 the default gate. R=2, U=10.",
+      "frozen": false,
+      "disclosedIndexes": [
+        6,
+        8
+      ],
+      "disclosedMessages": [
+        "over18=true",
+        "notSanctioned=true"
+      ],
+      "undisclosedCount": 10,
+      "binding": {
+        "nonce": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "walletAddress": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contractId": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "networkPassphrase": "Test SDF Network ; September 2015",
+        "ledgerExpiry": 18280
+      },
+      "bindingCanonicalBytes": "000000257374656c6c61726f6e72616d702f70726573656e746174696f6e2d62696e64696e672f76310000002000112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00000038434251484e415853493535475832474e36443637474b3742485650534c4a55475a51455537574a354c4b5235504e5543474c494d414f344b0000003843444c3435455542324749464650324b4a4734554c424c4149423656543748574756504936355436473656455a4f54554c575053515a493600000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000000400004768",
+      "bindingDigest": "35278da026059579d66a3aa59df082370a8e0a9e469a535631a9bdfae56f2a2a",
+      "presentationHeader": "5e46fa9fe0c74184a7e498709058745a21dd9268848c7bbc392c04475f9f8fb6",
+      "sorobanBinding": {
+        "subject": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contract": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "nonceHex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "ledgerExpiry": 18280,
+        "networkId": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472"
+      },
+      "proof": {
+        "compressed": "ac1665b7fc193190f57935d026712cb5c4f2a60c03397d1eea7abd0adfa45caa4509ade834fc786e507236d2d4a71810b3ee7f605a425abc70057dda413bb2d517eecc7c2fc3f45a922d51fabd3535e67e3c8c30e00e0766ff2c849499a967b5b73022b46a22c81850a501045bd7d27c14fef30979673afb86e49b0ad4a539523ade1261b9c7d9299bbfc8c9c73628143c8001bcccb219f833d395e50a85ca17210b6446a79fe11f84964e119a5ddc353084b696d46872426d2775022a25db72a28bfae4c90c12926e4987ded80a2f2417158a06648519b2b72810bdce0b321b478f3a85047914fd026afa8c9d517e81327f11994c14738e1be14d026547a5968beb470b9c373aeacb5f7737af6c6f014d386bfe1f45362411fc7832a765076c10c6d9afac0c998aa2e27e0a0e2269b8031ae4a09799b2d6e73f1f49592147d08ba943fa1ffefae32fcd7b557eca32f242038354da00049232217d1ba3f1cc977a2fe97aa1970c6b79fb377c086dac34275159da6f122de5c739e7bc94f720ab46927068806b67072d6ec1f6ac2eb97b62a4e2ef814a34a2226242265aeca021c300f0fc5477807e96b56b7e992ad12a1ab252973cf18d6a94439f39682c01a9ecb61ac1c8492cf4e55bf2d3b7a812ee6cb95f617927aee328e26d8ab75afe67cee5bd3626dd0a6ec70c5cacf257a990179cf4ea1b4ddfebbf84bcb401c6c28da21815f6209e9ded53494fcecb14974f3351f3eca345fc9be354b7149a0579975b9c8d3ece758bc6d02e4a447f2947f46721f765cf3d162ea14a3fb1891186297716f4a2a72b515178a5c6e28ff7a67b",
+        "length": 592,
+        "sizeLaw": "144 + 32*(4 + 10) = 592"
+      },
+      "soroban": {
+        "abar": "0c1665b7fc193190f57935d026712cb5c4f2a60c03397d1eea7abd0adfa45caa4509ade834fc786e507236d2d4a7181014ef7c885630f4d5216e834499974254364b226f928a2b96c41ecd401520f61f66cf3d74fea9c8ad622c461b6c19bf5d",
+        "bbar": "13ee7f605a425abc70057dda413bb2d517eecc7c2fc3f45a922d51fabd3535e67e3c8c30e00e0766ff2c849499a967b5136b342a530d4c15fa0e037f5dd946287164013f03a239e384e168756a1ab30e166ca24767a4e5bfc57987e692b3e5fd",
+        "d": "173022b46a22c81850a501045bd7d27c14fef30979673afb86e49b0ad4a539523ade1261b9c7d9299bbfc8c9c73628141711b8564480052bd32d5c6bda859554fc8ccc31637fde38b7f45894a6abef31197a84df34b90e280187d6ca7b32f8e0",
+        "eHat": "3c8001bcccb219f833d395e50a85ca17210b6446a79fe11f84964e119a5ddc35",
+        "r1Hat": "3084b696d46872426d2775022a25db72a28bfae4c90c12926e4987ded80a2f24",
+        "r3Hat": "17158a06648519b2b72810bdce0b321b478f3a85047914fd026afa8c9d517e81",
+        "mHat": [
+          "327f11994c14738e1be14d026547a5968beb470b9c373aeacb5f7737af6c6f01",
+          "4d386bfe1f45362411fc7832a765076c10c6d9afac0c998aa2e27e0a0e2269b8",
+          "031ae4a09799b2d6e73f1f49592147d08ba943fa1ffefae32fcd7b557eca32f2",
+          "42038354da00049232217d1ba3f1cc977a2fe97aa1970c6b79fb377c086dac34",
+          "275159da6f122de5c739e7bc94f720ab46927068806b67072d6ec1f6ac2eb97b",
+          "62a4e2ef814a34a2226242265aeca021c300f0fc5477807e96b56b7e992ad12a",
+          "1ab252973cf18d6a94439f39682c01a9ecb61ac1c8492cf4e55bf2d3b7a812ee",
+          "6cb95f617927aee328e26d8ab75afe67cee5bd3626dd0a6ec70c5cacf257a990",
+          "179cf4ea1b4ddfebbf84bcb401c6c28da21815f6209e9ded53494fcecb14974f",
+          "3351f3eca345fc9be354b7149a0579975b9c8d3ece758bc6d02e4a447f2947f4"
+        ],
+        "challenge": "6721f765cf3d162ea14a3fb1891186297716f4a2a72b515178a5c6e28ff7a67b",
+        "flat": "0c1665b7fc193190f57935d026712cb5c4f2a60c03397d1eea7abd0adfa45caa4509ade834fc786e507236d2d4a7181014ef7c885630f4d5216e834499974254364b226f928a2b96c41ecd401520f61f66cf3d74fea9c8ad622c461b6c19bf5d13ee7f605a425abc70057dda413bb2d517eecc7c2fc3f45a922d51fabd3535e67e3c8c30e00e0766ff2c849499a967b5136b342a530d4c15fa0e037f5dd946287164013f03a239e384e168756a1ab30e166ca24767a4e5bfc57987e692b3e5fd173022b46a22c81850a501045bd7d27c14fef30979673afb86e49b0ad4a539523ade1261b9c7d9299bbfc8c9c73628141711b8564480052bd32d5c6bda859554fc8ccc31637fde38b7f45894a6abef31197a84df34b90e280187d6ca7b32f8e03c8001bcccb219f833d395e50a85ca17210b6446a79fe11f84964e119a5ddc353084b696d46872426d2775022a25db72a28bfae4c90c12926e4987ded80a2f2417158a06648519b2b72810bdce0b321b478f3a85047914fd026afa8c9d517e81327f11994c14738e1be14d026547a5968beb470b9c373aeacb5f7737af6c6f014d386bfe1f45362411fc7832a765076c10c6d9afac0c998aa2e27e0a0e2269b8031ae4a09799b2d6e73f1f49592147d08ba943fa1ffefae32fcd7b557eca32f242038354da00049232217d1ba3f1cc977a2fe97aa1970c6b79fb377c086dac34275159da6f122de5c739e7bc94f720ab46927068806b67072d6ec1f6ac2eb97b62a4e2ef814a34a2226242265aeca021c300f0fc5477807e96b56b7e992ad12a1ab252973cf18d6a94439f39682c01a9ecb61ac1c8492cf4e55bf2d3b7a812ee6cb95f617927aee328e26d8ab75afe67cee5bd3626dd0a6ec70c5cacf257a990179cf4ea1b4ddfebbf84bcb401c6c28da21815f6209e9ded53494fcecb14974f3351f3eca345fc9be354b7149a0579975b9c8d3ece758bc6d02e4a447f2947f46721f765cf3d162ea14a3fb1891186297716f4a2a72b515178a5c6e28ff7a67b",
+        "flatLength": 736
+      },
+      "expect": {
+        "verify": true
+      }
+    },
+    {
+      "name": "over18-only",
+      "note": "Minimum disclosure for an age gate. R=1, U=11.",
+      "frozen": false,
+      "disclosedIndexes": [
+        6
+      ],
+      "disclosedMessages": [
+        "over18=true"
+      ],
+      "undisclosedCount": 11,
+      "binding": {
+        "nonce": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "walletAddress": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contractId": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "networkPassphrase": "Test SDF Network ; September 2015",
+        "ledgerExpiry": 18280
+      },
+      "bindingCanonicalBytes": "000000257374656c6c61726f6e72616d702f70726573656e746174696f6e2d62696e64696e672f76310000002000112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00000038434251484e415853493535475832474e36443637474b3742485650534c4a55475a51455537574a354c4b5235504e5543474c494d414f344b0000003843444c3435455542324749464650324b4a4734554c424c4149423656543748574756504936355436473656455a4f54554c575053515a493600000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000000400004768",
+      "bindingDigest": "35278da026059579d66a3aa59df082370a8e0a9e469a535631a9bdfae56f2a2a",
+      "presentationHeader": "5e46fa9fe0c74184a7e498709058745a21dd9268848c7bbc392c04475f9f8fb6",
+      "sorobanBinding": {
+        "subject": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contract": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "nonceHex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "ledgerExpiry": 18280,
+        "networkId": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472"
+      },
+      "proof": {
+        "compressed": "b3ed9b13b44db14c6f5f40a61b80f0a023a7c68dc5810360c421d043212535c134d0beab0f9b88f86c58cb905954e1938d4de369d354713f7e231335f70dce7e986c034d1ea12bb3501102ffe733d170b8a492c82e0f447b234392a37046bf59b1f8a83bf3440139ed8e7731a5a8d9f196a1e3690855c9e6ac04e57dfb475de1bc9b1758b265e7316a7af56f28b9f52d2016fa14d84c12453cca009f12a5f6479ccbba9bc02573bf622271d645ba28ec6b61286b787d2f54540a80bb8ac95188bc06e2b4100b9e1306813658c7dcae3f2916c52f2e13181cc8e49bb532d8305223ea44c09e432f136a6360727f7f2d821430cfa46ef471ba830630ffa204de4882087ca2055f5ce208a3550e752ffc5246adb22714ac85032b2b6c1d475fae52b98c56ffac4cb4a6fc0bea9d1bbe72521debf2405781906a4648643ebe80bf61235c4c0fc5e0f8a5070ba0e20db05f9d2d92ad0f94b0720da894cc3b8b9a8425fcc6c0e58b67d8641b9273084f67163d311f666ffe5328fec7cda205c544a23332be45cbe307b1adac529a50c606446e083eaae184a1e71d946f136ad9a75e5354ec661469a8604dfc995edf72193bd8497d36cbc8cc9aac484e95546e9acd4a62d994fda95c4a0d0ca3d196dc4e3ab8600258c579ffc2f7eaf8784c09bb8ce111bc70008511d9d6d02fd48946df7b98117bdb733e4e6ee61708e0dd03c49f0a9ac1f48b6781aa60e0d9bef001856a226714a68949d5434dad8b8f33b9c3333f15e41e0a90ea016eac7b66811841f1bb4c193744aaf837df1defee029ec8955a138343d3913f85cff9fb7fbd536633cc479f7f2bc2dd50832af3ffcc1077d2cba1eb2aed517cffea324d7bc4a0305df1",
+        "length": 624,
+        "sizeLaw": "144 + 32*(4 + 11) = 624"
+      },
+      "soroban": {
+        "abar": "13ed9b13b44db14c6f5f40a61b80f0a023a7c68dc5810360c421d043212535c134d0beab0f9b88f86c58cb905954e193177d14812ce71a93a777cc55bd59930334b589343087327fe608fccd5390e77b4b560d180934c61ed4c9be2581961af1",
+        "bbar": "0d4de369d354713f7e231335f70dce7e986c034d1ea12bb3501102ffe733d170b8a492c82e0f447b234392a37046bf590cf8765e2dd2332e3a894f1509ff0a3c293fe606a1e67e89abc99f640d1296c98df3ec762b2418a480cc55f01629fda7",
+        "d": "11f8a83bf3440139ed8e7731a5a8d9f196a1e3690855c9e6ac04e57dfb475de1bc9b1758b265e7316a7af56f28b9f52d1230a5017eaed20fdca7895f2b9b5dd7a9e920f3620a772f564326a490b9d7109c77e16ef1876c2626f8b7c90993f84e",
+        "eHat": "2016fa14d84c12453cca009f12a5f6479ccbba9bc02573bf622271d645ba28ec",
+        "r1Hat": "6b61286b787d2f54540a80bb8ac95188bc06e2b4100b9e1306813658c7dcae3f",
+        "r3Hat": "2916c52f2e13181cc8e49bb532d8305223ea44c09e432f136a6360727f7f2d82",
+        "mHat": [
+          "1430cfa46ef471ba830630ffa204de4882087ca2055f5ce208a3550e752ffc52",
+          "46adb22714ac85032b2b6c1d475fae52b98c56ffac4cb4a6fc0bea9d1bbe7252",
+          "1debf2405781906a4648643ebe80bf61235c4c0fc5e0f8a5070ba0e20db05f9d",
+          "2d92ad0f94b0720da894cc3b8b9a8425fcc6c0e58b67d8641b9273084f67163d",
+          "311f666ffe5328fec7cda205c544a23332be45cbe307b1adac529a50c606446e",
+          "083eaae184a1e71d946f136ad9a75e5354ec661469a8604dfc995edf72193bd8",
+          "497d36cbc8cc9aac484e95546e9acd4a62d994fda95c4a0d0ca3d196dc4e3ab8",
+          "600258c579ffc2f7eaf8784c09bb8ce111bc70008511d9d6d02fd48946df7b98",
+          "117bdb733e4e6ee61708e0dd03c49f0a9ac1f48b6781aa60e0d9bef001856a22",
+          "6714a68949d5434dad8b8f33b9c3333f15e41e0a90ea016eac7b66811841f1bb",
+          "4c193744aaf837df1defee029ec8955a138343d3913f85cff9fb7fbd536633cc"
+        ],
+        "challenge": "479f7f2bc2dd50832af3ffcc1077d2cba1eb2aed517cffea324d7bc4a0305df1",
+        "flat": "13ed9b13b44db14c6f5f40a61b80f0a023a7c68dc5810360c421d043212535c134d0beab0f9b88f86c58cb905954e193177d14812ce71a93a777cc55bd59930334b589343087327fe608fccd5390e77b4b560d180934c61ed4c9be2581961af10d4de369d354713f7e231335f70dce7e986c034d1ea12bb3501102ffe733d170b8a492c82e0f447b234392a37046bf590cf8765e2dd2332e3a894f1509ff0a3c293fe606a1e67e89abc99f640d1296c98df3ec762b2418a480cc55f01629fda711f8a83bf3440139ed8e7731a5a8d9f196a1e3690855c9e6ac04e57dfb475de1bc9b1758b265e7316a7af56f28b9f52d1230a5017eaed20fdca7895f2b9b5dd7a9e920f3620a772f564326a490b9d7109c77e16ef1876c2626f8b7c90993f84e2016fa14d84c12453cca009f12a5f6479ccbba9bc02573bf622271d645ba28ec6b61286b787d2f54540a80bb8ac95188bc06e2b4100b9e1306813658c7dcae3f2916c52f2e13181cc8e49bb532d8305223ea44c09e432f136a6360727f7f2d821430cfa46ef471ba830630ffa204de4882087ca2055f5ce208a3550e752ffc5246adb22714ac85032b2b6c1d475fae52b98c56ffac4cb4a6fc0bea9d1bbe72521debf2405781906a4648643ebe80bf61235c4c0fc5e0f8a5070ba0e20db05f9d2d92ad0f94b0720da894cc3b8b9a8425fcc6c0e58b67d8641b9273084f67163d311f666ffe5328fec7cda205c544a23332be45cbe307b1adac529a50c606446e083eaae184a1e71d946f136ad9a75e5354ec661469a8604dfc995edf72193bd8497d36cbc8cc9aac484e95546e9acd4a62d994fda95c4a0d0ca3d196dc4e3ab8600258c579ffc2f7eaf8784c09bb8ce111bc70008511d9d6d02fd48946df7b98117bdb733e4e6ee61708e0dd03c49f0a9ac1f48b6781aa60e0d9bef001856a226714a68949d5434dad8b8f33b9c3333f15e41e0a90ea016eac7b66811841f1bb4c193744aaf837df1defee029ec8955a138343d3913f85cff9fb7fbd536633cc479f7f2bc2dd50832af3ffcc1077d2cba1eb2aed517cffea324d7bc4a0305df1",
+        "flatLength": 768
+      },
+      "expect": {
+        "verify": true
+      }
+    },
+    {
+      "name": "empty-disclosure",
+      "note": "Proves possession of a valid credential and nothing else. R=0, U=12.",
+      "frozen": false,
+      "disclosedIndexes": [],
+      "disclosedMessages": [],
+      "undisclosedCount": 12,
+      "binding": {
+        "nonce": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "walletAddress": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contractId": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "networkPassphrase": "Test SDF Network ; September 2015",
+        "ledgerExpiry": 18280
+      },
+      "bindingCanonicalBytes": "000000257374656c6c61726f6e72616d702f70726573656e746174696f6e2d62696e64696e672f76310000002000112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00000038434251484e415853493535475832474e36443637474b3742485650534c4a55475a51455537574a354c4b5235504e5543474c494d414f344b0000003843444c3435455542324749464650324b4a4734554c424c4149423656543748574756504936355436473656455a4f54554c575053515a493600000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000000400004768",
+      "bindingDigest": "35278da026059579d66a3aa59df082370a8e0a9e469a535631a9bdfae56f2a2a",
+      "presentationHeader": "5e46fa9fe0c74184a7e498709058745a21dd9268848c7bbc392c04475f9f8fb6",
+      "sorobanBinding": {
+        "subject": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contract": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "nonceHex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "ledgerExpiry": 18280,
+        "networkId": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472"
+      },
+      "proof": {
+        "compressed": "9466c7d9668a257ec2ff5163ec1042c01f0a2bb8070f15b7464bdcce8ac4d967033e9eef691250bffe0be420332dcefdaaaa33affdf8db0b5ebb91d01ded56058ca9000bb008c50e440187e5c73b1fc9b1a6d28985b159f5d88d2bf8834108ac93d59863641fefe2dd9b0c11df27903bad3b9a4cc087561ce1a3cd7effb66b71d14d474dbbe3f50941826303e34a5a19641a04be3fd8a0942839752fde02cd4a91ffc7d09a14f7827ac9b6253602dff031f793f8894834ebb7621c459917aa3bfa42be3c8932c03d01a508fe466c7d7f0646771dc46c641e85539dca121d93b5d7fdac1c359936a74dd560e60de0ce5d36acc7242d5b5abc69aec03fce7de73320dbd2f280259b61e5e58e76aed0b4d651ed944c0981d9ded20fc0cbba5e3f8e3f1f2dbdd04095d488a62936c766a9cc388ac956a6eedcf9a81d17a2086c9b0b086485f4352d9bede14c179e505ca8d2545cb66334cd06a1a6f77dbc1aa4fe59bb532f25d10c805f0698f550085c05ff5d913fc9e6bd4d673a75d96a181273855bf94e564c54598482061ecee30e04960840f1ecbbabd002ed0470920777e34b2cb385aa64a0eef5f9bac46c10904a3549fae67b5e4f1a80a115e5e17a2a694c574d86416864e9a879c2ac8a0c7bac953b38db0d6e2a4a80e09173eba743b52005be6f86ab3dec3dc79ddfd18924fb2407ed92ff3061138350bbad3224ef34c7cab226ae8b268b6871be6206940a2ab128c549df02dbf0d1710a3cb400ad13e8052379383575e7d94f9ad29d7492e18f68c7fd04653a653714e5d066519b8af92a61cf54f1f5f4bea9e1a7d2c418bc8d6ab885669fe3b8bd393fb9c6d63fc6f94a31398debebdd4ae087021b9a5d8bef2da7f4aeecc157fa917e304f036c8ddfe2f407026000dc0e8afc7ed0f23ca320",
+        "length": 656,
+        "sizeLaw": "144 + 32*(4 + 12) = 656"
+      },
+      "soroban": {
+        "abar": "1466c7d9668a257ec2ff5163ec1042c01f0a2bb8070f15b7464bdcce8ac4d967033e9eef691250bffe0be420332dcefd0233ac007849b59930098b01aa0c971148448b954440a28463ca48b7c65236f941ea9933d31725c0e90fdac1ea9a6e37",
+        "bbar": "0aaa33affdf8db0b5ebb91d01ded56058ca9000bb008c50e440187e5c73b1fc9b1a6d28985b159f5d88d2bf8834108ac16eaf0012f4ba48dabf2c419323a0a9e6d540429b77618d6aebe20141c64baae602be7d9b12d65ed0cf07cbfc9e70cc8",
+        "d": "13d59863641fefe2dd9b0c11df27903bad3b9a4cc087561ce1a3cd7effb66b71d14d474dbbe3f50941826303e34a5a190b9cc0de884bb23fc78d838f997b8d23c9bdec28af84c02537ffce9813cd41f17cbe31d6f989ba04576018ac638a8049",
+        "eHat": "641a04be3fd8a0942839752fde02cd4a91ffc7d09a14f7827ac9b6253602dff0",
+        "r1Hat": "31f793f8894834ebb7621c459917aa3bfa42be3c8932c03d01a508fe466c7d7f",
+        "r3Hat": "0646771dc46c641e85539dca121d93b5d7fdac1c359936a74dd560e60de0ce5d",
+        "mHat": [
+          "36acc7242d5b5abc69aec03fce7de73320dbd2f280259b61e5e58e76aed0b4d6",
+          "51ed944c0981d9ded20fc0cbba5e3f8e3f1f2dbdd04095d488a62936c766a9cc",
+          "388ac956a6eedcf9a81d17a2086c9b0b086485f4352d9bede14c179e505ca8d2",
+          "545cb66334cd06a1a6f77dbc1aa4fe59bb532f25d10c805f0698f550085c05ff",
+          "5d913fc9e6bd4d673a75d96a181273855bf94e564c54598482061ecee30e0496",
+          "0840f1ecbbabd002ed0470920777e34b2cb385aa64a0eef5f9bac46c10904a35",
+          "49fae67b5e4f1a80a115e5e17a2a694c574d86416864e9a879c2ac8a0c7bac95",
+          "3b38db0d6e2a4a80e09173eba743b52005be6f86ab3dec3dc79ddfd18924fb24",
+          "07ed92ff3061138350bbad3224ef34c7cab226ae8b268b6871be6206940a2ab1",
+          "28c549df02dbf0d1710a3cb400ad13e8052379383575e7d94f9ad29d7492e18f",
+          "68c7fd04653a653714e5d066519b8af92a61cf54f1f5f4bea9e1a7d2c418bc8d",
+          "6ab885669fe3b8bd393fb9c6d63fc6f94a31398debebdd4ae087021b9a5d8bef"
+        ],
+        "challenge": "2da7f4aeecc157fa917e304f036c8ddfe2f407026000dc0e8afc7ed0f23ca320",
+        "flat": "1466c7d9668a257ec2ff5163ec1042c01f0a2bb8070f15b7464bdcce8ac4d967033e9eef691250bffe0be420332dcefd0233ac007849b59930098b01aa0c971148448b954440a28463ca48b7c65236f941ea9933d31725c0e90fdac1ea9a6e370aaa33affdf8db0b5ebb91d01ded56058ca9000bb008c50e440187e5c73b1fc9b1a6d28985b159f5d88d2bf8834108ac16eaf0012f4ba48dabf2c419323a0a9e6d540429b77618d6aebe20141c64baae602be7d9b12d65ed0cf07cbfc9e70cc813d59863641fefe2dd9b0c11df27903bad3b9a4cc087561ce1a3cd7effb66b71d14d474dbbe3f50941826303e34a5a190b9cc0de884bb23fc78d838f997b8d23c9bdec28af84c02537ffce9813cd41f17cbe31d6f989ba04576018ac638a8049641a04be3fd8a0942839752fde02cd4a91ffc7d09a14f7827ac9b6253602dff031f793f8894834ebb7621c459917aa3bfa42be3c8932c03d01a508fe466c7d7f0646771dc46c641e85539dca121d93b5d7fdac1c359936a74dd560e60de0ce5d36acc7242d5b5abc69aec03fce7de73320dbd2f280259b61e5e58e76aed0b4d651ed944c0981d9ded20fc0cbba5e3f8e3f1f2dbdd04095d488a62936c766a9cc388ac956a6eedcf9a81d17a2086c9b0b086485f4352d9bede14c179e505ca8d2545cb66334cd06a1a6f77dbc1aa4fe59bb532f25d10c805f0698f550085c05ff5d913fc9e6bd4d673a75d96a181273855bf94e564c54598482061ecee30e04960840f1ecbbabd002ed0470920777e34b2cb385aa64a0eef5f9bac46c10904a3549fae67b5e4f1a80a115e5e17a2a694c574d86416864e9a879c2ac8a0c7bac953b38db0d6e2a4a80e09173eba743b52005be6f86ab3dec3dc79ddfd18924fb2407ed92ff3061138350bbad3224ef34c7cab226ae8b268b6871be6206940a2ab128c549df02dbf0d1710a3cb400ad13e8052379383575e7d94f9ad29d7492e18f68c7fd04653a653714e5d066519b8af92a61cf54f1f5f4bea9e1a7d2c418bc8d6ab885669fe3b8bd393fb9c6d63fc6f94a31398debebdd4ae087021b9a5d8bef2da7f4aeecc157fa917e304f036c8ddfe2f407026000dc0e8afc7ed0f23ca320",
+        "flatLength": 800
+      },
+      "expect": {
+        "verify": true
+      }
+    },
+    {
+      "name": "full-disclosure",
+      "note": "Every attribute revealed. R=12, U=0 \u2014 the proof-size floor, 272 bytes.",
+      "frozen": false,
+      "disclosedIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "disclosedMessages": [
+        "schemaVersion=1",
+        "issuerId=a9daf8fdce22775d5d5ed973f320a91911d684a91f82e522fef26cb5120205e5",
+        "revocationIndex=4242",
+        "issuedAt=1767225600",
+        "expiresAt=1782950400",
+        "subjectBinding=3d1f2b6a9c8e4705b1d2c3a4f5e6978899aabbccddeeff001122334455667788",
+        "over18=true",
+        "over21=true",
+        "notSanctioned=true",
+        "notPep=true",
+        "jurisdictionOk=true",
+        "livenessOk=true"
+      ],
+      "undisclosedCount": 0,
+      "binding": {
+        "nonce": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "walletAddress": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contractId": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "networkPassphrase": "Test SDF Network ; September 2015",
+        "ledgerExpiry": 18280
+      },
+      "bindingCanonicalBytes": "000000257374656c6c61726f6e72616d702f70726573656e746174696f6e2d62696e64696e672f76310000002000112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00000038434251484e415853493535475832474e36443637474b3742485650534c4a55475a51455537574a354c4b5235504e5543474c494d414f344b0000003843444c3435455542324749464650324b4a4734554c424c4149423656543748574756504936355436473656455a4f54554c575053515a493600000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000000400004768",
+      "bindingDigest": "35278da026059579d66a3aa59df082370a8e0a9e469a535631a9bdfae56f2a2a",
+      "presentationHeader": "5e46fa9fe0c74184a7e498709058745a21dd9268848c7bbc392c04475f9f8fb6",
+      "sorobanBinding": {
+        "subject": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contract": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "nonceHex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "ledgerExpiry": 18280,
+        "networkId": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472"
+      },
+      "proof": {
+        "compressed": "a2bf2d434a1a74041f06a65c7c574b5b4d8ba9efad2eb16146033334112554cdf923f9b891de7336c4117a52037637afa656188e40faf08b09eef98cd17eb54b30a0be56d76ad84faade7f3f0968869dcc6d0cbcf3c18b69dfcd3f017279f4fba6fe6d9b5c90fdf8b1027fa99b40efc2255ceaf8ef25c5a7debc810a1b34ae346bf2217c2b53876947e49cb078ce657b476ea6e62d2f5120c64a93b7e4a0f79c5d15785229778b949d70913eeebe5012268524c9e814f4e64abdc0356a4ce27b768c59d6cf3579539c2cc9af7e3e451d1dae9d1707707ed1e420d582287f0ff27215a73f3ee8dc7ad3ae3835f334e21449a9351d4332f0b7d33c7ce7e9c7b6f7dc98dad9c00e6ed7847c176c5b31df4f",
+        "length": 272,
+        "sizeLaw": "144 + 32*(4 + 0) = 272"
+      },
+      "soroban": {
+        "abar": "02bf2d434a1a74041f06a65c7c574b5b4d8ba9efad2eb16146033334112554cdf923f9b891de7336c4117a52037637af0f40790669d61f52eea5907f2b1276551e12141086aa5af707c572c35db3b6ac646c24e71e83cf88f7560e71afd614b9",
+        "bbar": "0656188e40faf08b09eef98cd17eb54b30a0be56d76ad84faade7f3f0968869dcc6d0cbcf3c18b69dfcd3f017279f4fb0df32115a4d9c2a55f0f0297df5cd272057a4d8a6b9c4a73414bb8bd6fadca6766c11908a57787d09911a5b5bb5a1af6",
+        "d": "06fe6d9b5c90fdf8b1027fa99b40efc2255ceaf8ef25c5a7debc810a1b34ae346bf2217c2b53876947e49cb078ce657b12e648b234d827399dafbac8a6a50912413bc1675ff1fe3e7a6c31447bb78d890d1eeea9ebe7727fe2194ded6f9a9041",
+        "eHat": "476ea6e62d2f5120c64a93b7e4a0f79c5d15785229778b949d70913eeebe5012",
+        "r1Hat": "268524c9e814f4e64abdc0356a4ce27b768c59d6cf3579539c2cc9af7e3e451d",
+        "r3Hat": "1dae9d1707707ed1e420d582287f0ff27215a73f3ee8dc7ad3ae3835f334e214",
+        "mHat": [],
+        "challenge": "49a9351d4332f0b7d33c7ce7e9c7b6f7dc98dad9c00e6ed7847c176c5b31df4f",
+        "flat": "02bf2d434a1a74041f06a65c7c574b5b4d8ba9efad2eb16146033334112554cdf923f9b891de7336c4117a52037637af0f40790669d61f52eea5907f2b1276551e12141086aa5af707c572c35db3b6ac646c24e71e83cf88f7560e71afd614b90656188e40faf08b09eef98cd17eb54b30a0be56d76ad84faade7f3f0968869dcc6d0cbcf3c18b69dfcd3f017279f4fb0df32115a4d9c2a55f0f0297df5cd272057a4d8a6b9c4a73414bb8bd6fadca6766c11908a57787d09911a5b5bb5a1af606fe6d9b5c90fdf8b1027fa99b40efc2255ceaf8ef25c5a7debc810a1b34ae346bf2217c2b53876947e49cb078ce657b12e648b234d827399dafbac8a6a50912413bc1675ff1fe3e7a6c31447bb78d890d1eeea9ebe7727fe2194ded6f9a9041476ea6e62d2f5120c64a93b7e4a0f79c5d15785229778b949d70913eeebe5012268524c9e814f4e64abdc0356a4ce27b768c59d6cf3579539c2cc9af7e3e451d1dae9d1707707ed1e420d582287f0ff27215a73f3ee8dc7ad3ae3835f334e21449a9351d4332f0b7d33c7ce7e9c7b6f7dc98dad9c00e6ed7847c176c5b31df4f",
+        "flatLength": 416
+      },
+      "expect": {
+        "verify": true
+      }
+    },
+    {
+      "name": "metadata-plus-gate",
+      "note": "What kyc-gate.attest_bbs actually needs: revocationIndex + expiry + subject binding + the two gate booleans.",
+      "frozen": false,
+      "disclosedIndexes": [
+        2,
+        4,
+        5,
+        6,
+        8
+      ],
+      "disclosedMessages": [
+        "revocationIndex=4242",
+        "expiresAt=1782950400",
+        "subjectBinding=3d1f2b6a9c8e4705b1d2c3a4f5e6978899aabbccddeeff001122334455667788",
+        "over18=true",
+        "notSanctioned=true"
+      ],
+      "undisclosedCount": 7,
+      "binding": {
+        "nonce": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "walletAddress": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contractId": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "networkPassphrase": "Test SDF Network ; September 2015",
+        "ledgerExpiry": 18280
+      },
+      "bindingCanonicalBytes": "000000257374656c6c61726f6e72616d702f70726573656e746174696f6e2d62696e64696e672f76310000002000112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00000038434251484e415853493535475832474e36443637474b3742485650534c4a55475a51455537574a354c4b5235504e5543474c494d414f344b0000003843444c3435455542324749464650324b4a4734554c424c4149423656543748574756504936355436473656455a4f54554c575053515a493600000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000000400004768",
+      "bindingDigest": "35278da026059579d66a3aa59df082370a8e0a9e469a535631a9bdfae56f2a2a",
+      "presentationHeader": "5e46fa9fe0c74184a7e498709058745a21dd9268848c7bbc392c04475f9f8fb6",
+      "sorobanBinding": {
+        "subject": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contract": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "nonceHex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "ledgerExpiry": 18280,
+        "networkId": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472"
+      },
+      "proof": {
+        "compressed": "ac0798229accd68501549d5d5e58e0140df11ec36dcf35cd1242572b7e213c74ba8d6db3ceaf6b82856b1273e1deae7095141245d9eee0a3513f7e28429a2a6a4ddec8516f01479e79c596d601339a457bc19173bd18fe4e66ab7870ce2cc3eca7aace51be95ee8c3a80a769b05a8caa85f27aa5a114d17ece7c68e11b99c610650d5535167b1c1fe2888c47deecce090b63103a93f63639a34e9b92efe34e611eb348005af47c863dd25f6bae4a54a125fb11e593bfcfeacf15b45b6a29e72d5078eceb6c80bdaffb66465b2c2579642acafcf4878459a14c42d8d6f198510305f148985495f70a619853274e13c1ce4c6e0cd24b876908dc8c4842f7bee4a721df3ad33ebfd1c6d8c1a678b3da66e6336acec4484d3ea92b6c95e1b4b93bd379e6c4466d5e06c9587e4e40663eb5750a7be2c22848f67dd90dbf4243fad012c17add199fa7ff28022db5497c7a58873e6b18f883d6886cf22e4f5fc3abeb45ecca9a788a2d4511941290a7c3eed2db14c2199723a1343ed211a6232e81682e1f8867d953aa142994e50705b161206c50303cd63e8809ca03e75b01e4a170abbe87894f5ed3632af107955888c5fb5c26881e16f0a6ee9da6aa9131521697033e64891e45f09d817c707dcc086ce8ea3419915d44c3df83d711dd577cbe58c59b659c3ef9111c0600abfa9f6c0a60d7",
+        "length": 496,
+        "sizeLaw": "144 + 32*(4 + 7) = 496"
+      },
+      "soroban": {
+        "abar": "0c0798229accd68501549d5d5e58e0140df11ec36dcf35cd1242572b7e213c74ba8d6db3ceaf6b82856b1273e1deae7014a8d77fd2cafa46183f57b5f4755f636d11fd8111b9abca351d953ccfae8432419be555c871bbc32b44bd3491badb3e",
+        "bbar": "15141245d9eee0a3513f7e28429a2a6a4ddec8516f01479e79c596d601339a457bc19173bd18fe4e66ab7870ce2cc3ec050c9a7eefb658ffedcd23e49230c50865afdb8e8995fe4b77de252ef3d7b063d2e6edd7eda2a40a114f859eb0598f06",
+        "d": "07aace51be95ee8c3a80a769b05a8caa85f27aa5a114d17ece7c68e11b99c610650d5535167b1c1fe2888c47deecce0912669eedce7a250c9130c8aea3b00b949e2e89a0d3ee724dbe7806af384fbe837d06f7100cd4b6b9fccd4de4cce33229",
+        "eHat": "0b63103a93f63639a34e9b92efe34e611eb348005af47c863dd25f6bae4a54a1",
+        "r1Hat": "25fb11e593bfcfeacf15b45b6a29e72d5078eceb6c80bdaffb66465b2c257964",
+        "r3Hat": "2acafcf4878459a14c42d8d6f198510305f148985495f70a619853274e13c1ce",
+        "mHat": [
+          "4c6e0cd24b876908dc8c4842f7bee4a721df3ad33ebfd1c6d8c1a678b3da66e6",
+          "336acec4484d3ea92b6c95e1b4b93bd379e6c4466d5e06c9587e4e40663eb575",
+          "0a7be2c22848f67dd90dbf4243fad012c17add199fa7ff28022db5497c7a5887",
+          "3e6b18f883d6886cf22e4f5fc3abeb45ecca9a788a2d4511941290a7c3eed2db",
+          "14c2199723a1343ed211a6232e81682e1f8867d953aa142994e50705b161206c",
+          "50303cd63e8809ca03e75b01e4a170abbe87894f5ed3632af107955888c5fb5c",
+          "26881e16f0a6ee9da6aa9131521697033e64891e45f09d817c707dcc086ce8ea"
+        ],
+        "challenge": "3419915d44c3df83d711dd577cbe58c59b659c3ef9111c0600abfa9f6c0a60d7",
+        "flat": "0c0798229accd68501549d5d5e58e0140df11ec36dcf35cd1242572b7e213c74ba8d6db3ceaf6b82856b1273e1deae7014a8d77fd2cafa46183f57b5f4755f636d11fd8111b9abca351d953ccfae8432419be555c871bbc32b44bd3491badb3e15141245d9eee0a3513f7e28429a2a6a4ddec8516f01479e79c596d601339a457bc19173bd18fe4e66ab7870ce2cc3ec050c9a7eefb658ffedcd23e49230c50865afdb8e8995fe4b77de252ef3d7b063d2e6edd7eda2a40a114f859eb0598f0607aace51be95ee8c3a80a769b05a8caa85f27aa5a114d17ece7c68e11b99c610650d5535167b1c1fe2888c47deecce0912669eedce7a250c9130c8aea3b00b949e2e89a0d3ee724dbe7806af384fbe837d06f7100cd4b6b9fccd4de4cce332290b63103a93f63639a34e9b92efe34e611eb348005af47c863dd25f6bae4a54a125fb11e593bfcfeacf15b45b6a29e72d5078eceb6c80bdaffb66465b2c2579642acafcf4878459a14c42d8d6f198510305f148985495f70a619853274e13c1ce4c6e0cd24b876908dc8c4842f7bee4a721df3ad33ebfd1c6d8c1a678b3da66e6336acec4484d3ea92b6c95e1b4b93bd379e6c4466d5e06c9587e4e40663eb5750a7be2c22848f67dd90dbf4243fad012c17add199fa7ff28022db5497c7a58873e6b18f883d6886cf22e4f5fc3abeb45ecca9a788a2d4511941290a7c3eed2db14c2199723a1343ed211a6232e81682e1f8867d953aa142994e50705b161206c50303cd63e8809ca03e75b01e4a170abbe87894f5ed3632af107955888c5fb5c26881e16f0a6ee9da6aa9131521697033e64891e45f09d817c707dcc086ce8ea3419915d44c3df83d711dd577cbe58c59b659c3ef9111c0600abfa9f6c0a60d7",
+        "flatLength": 640
+      },
+      "expect": {
+        "verify": true
+      }
+    },
+    {
+      "name": "gate-onramp",
+      "note": "The on-ramp disclosure set {0,1,2,3,4,5,6,8} \u2014 what gateOnrampPredicate() returns. R=8, U=4, 400 bytes. This is the case the Rust attest_bbs verifier should cross-check its issuer_id / revocation_index / expires_at arguments against.",
+      "frozen": false,
+      "disclosedIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        8
+      ],
+      "disclosedMessages": [
+        "schemaVersion=1",
+        "issuerId=a9daf8fdce22775d5d5ed973f320a91911d684a91f82e522fef26cb5120205e5",
+        "revocationIndex=4242",
+        "issuedAt=1767225600",
+        "expiresAt=1782950400",
+        "subjectBinding=3d1f2b6a9c8e4705b1d2c3a4f5e6978899aabbccddeeff001122334455667788",
+        "over18=true",
+        "notSanctioned=true"
+      ],
+      "undisclosedCount": 4,
+      "binding": {
+        "nonce": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "walletAddress": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contractId": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "networkPassphrase": "Test SDF Network ; September 2015",
+        "ledgerExpiry": 18280
+      },
+      "bindingCanonicalBytes": "000000257374656c6c61726f6e72616d702f70726573656e746174696f6e2d62696e64696e672f76310000002000112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00000038434251484e415853493535475832474e36443637474b3742485650534c4a55475a51455537574a354c4b5235504e5543474c494d414f344b0000003843444c3435455542324749464650324b4a4734554c424c4149423656543748574756504936355436473656455a4f54554c575053515a493600000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000000400004768",
+      "bindingDigest": "35278da026059579d66a3aa59df082370a8e0a9e469a535631a9bdfae56f2a2a",
+      "presentationHeader": "5e46fa9fe0c74184a7e498709058745a21dd9268848c7bbc392c04475f9f8fb6",
+      "sorobanBinding": {
+        "subject": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contract": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "nonceHex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "ledgerExpiry": 18280,
+        "networkId": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472"
+      },
+      "proof": {
+        "compressed": "b407fd773ab33ee8296f22c6ecd1185a5682fefc2b5b2c78b7b603bc6872dd14cf187ad33c4619f54614ad7fc5838094ab9f515509803b3abf105e9fa730712fba890d2047d2e4807f95894a894ba1b1348158b84936e4820c6791d715c6810193cbea0d66e6322f03e36985234639d009f04305dfdf73fb4ff8d63f34cc06ce772f725d4a0dcde530fd03f2aa3c250c138d68e8ab814b3731c4734fa7c5f855941dc6ae08d43ae0a01eb4ddb865e72a61c842a546b4a221b853a4469a7998a1d65a490e51755100f874a03820a615ac5d1c607fab6808e04377beb467a62f2aca5b1332deb36a52df8f2b7e797a406b26ecd1b8eecd264f64d08ae48baace89a1b7359c1638df55a22bc216bb54175760b38dc1fd7d7e7f72991c14de5dbf82fd7edf26d564bae6e1e45dbb133309a80a081c1d7bae524cb9ceac2378dcdd83f82a180bb8485f4d48b739da109e40a51a3c3627a56f229ce71b16faeb28f9d4df60c403edb961f76ede2ff781851da6428d0c8e2eaad0d5141721881324844b04e83330c52a06818ad590eed9656ff9",
+        "length": 400,
+        "sizeLaw": "144 + 32*(4 + 4) = 400"
+      },
+      "soroban": {
+        "abar": "1407fd773ab33ee8296f22c6ecd1185a5682fefc2b5b2c78b7b603bc6872dd14cf187ad33c4619f54614ad7fc58380941764c847fe757794b55fa4f67264abb4364f92675ad38c19ddd4de9d4aee59164bb8d6bec2b8589fcaf5d62c7af73bc1",
+        "bbar": "0b9f515509803b3abf105e9fa730712fba890d2047d2e4807f95894a894ba1b1348158b84936e4820c6791d715c681010f4724b420d3bdcc7f3da98a60b1f221b8ea854b52772f80947eaeb03ca730cb14507d6723fe443576d8b54c58225311",
+        "d": "13cbea0d66e6322f03e36985234639d009f04305dfdf73fb4ff8d63f34cc06ce772f725d4a0dcde530fd03f2aa3c250c097111d9d88d3fe928dc6671139edca11ddaa59a386c5d72e7395f1b2774ef4ede10727a1caaede2e114e631eb69ff85",
+        "eHat": "138d68e8ab814b3731c4734fa7c5f855941dc6ae08d43ae0a01eb4ddb865e72a",
+        "r1Hat": "61c842a546b4a221b853a4469a7998a1d65a490e51755100f874a03820a615ac",
+        "r3Hat": "5d1c607fab6808e04377beb467a62f2aca5b1332deb36a52df8f2b7e797a406b",
+        "mHat": [
+          "26ecd1b8eecd264f64d08ae48baace89a1b7359c1638df55a22bc216bb541757",
+          "60b38dc1fd7d7e7f72991c14de5dbf82fd7edf26d564bae6e1e45dbb133309a8",
+          "0a081c1d7bae524cb9ceac2378dcdd83f82a180bb8485f4d48b739da109e40a5",
+          "1a3c3627a56f229ce71b16faeb28f9d4df60c403edb961f76ede2ff781851da6"
+        ],
+        "challenge": "428d0c8e2eaad0d5141721881324844b04e83330c52a06818ad590eed9656ff9",
+        "flat": "1407fd773ab33ee8296f22c6ecd1185a5682fefc2b5b2c78b7b603bc6872dd14cf187ad33c4619f54614ad7fc58380941764c847fe757794b55fa4f67264abb4364f92675ad38c19ddd4de9d4aee59164bb8d6bec2b8589fcaf5d62c7af73bc10b9f515509803b3abf105e9fa730712fba890d2047d2e4807f95894a894ba1b1348158b84936e4820c6791d715c681010f4724b420d3bdcc7f3da98a60b1f221b8ea854b52772f80947eaeb03ca730cb14507d6723fe443576d8b54c5822531113cbea0d66e6322f03e36985234639d009f04305dfdf73fb4ff8d63f34cc06ce772f725d4a0dcde530fd03f2aa3c250c097111d9d88d3fe928dc6671139edca11ddaa59a386c5d72e7395f1b2774ef4ede10727a1caaede2e114e631eb69ff85138d68e8ab814b3731c4734fa7c5f855941dc6ae08d43ae0a01eb4ddb865e72a61c842a546b4a221b853a4469a7998a1d65a490e51755100f874a03820a615ac5d1c607fab6808e04377beb467a62f2aca5b1332deb36a52df8f2b7e797a406b26ecd1b8eecd264f64d08ae48baace89a1b7359c1638df55a22bc216bb54175760b38dc1fd7d7e7f72991c14de5dbf82fd7edf26d564bae6e1e45dbb133309a80a081c1d7bae524cb9ceac2378dcdd83f82a180bb8485f4d48b739da109e40a51a3c3627a56f229ce71b16faeb28f9d4df60c403edb961f76ede2ff781851da6428d0c8e2eaad0d5141721881324844b04e83330c52a06818ad590eed9656ff9",
+        "flatLength": 544
+      },
+      "expect": {
+        "verify": true
+      }
+    },
+    {
+      "name": "gate-onramp-second-nonce",
+      "note": "Byte-identical to gate-onramp except for the binding NONCE. Exists because attest_bbs now CONSUMES the nonce: any Rust test that attests a second time for the same subject (revoke then re-submit, stale-expiry ordering) needs a second, independently valid proof. Same subject, same gate, same network, same ledgerExpiry.",
+      "frozen": false,
+      "disclosedIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        8
+      ],
+      "disclosedMessages": [
+        "schemaVersion=1",
+        "issuerId=a9daf8fdce22775d5d5ed973f320a91911d684a91f82e522fef26cb5120205e5",
+        "revocationIndex=4242",
+        "issuedAt=1767225600",
+        "expiresAt=1782950400",
+        "subjectBinding=3d1f2b6a9c8e4705b1d2c3a4f5e6978899aabbccddeeff001122334455667788",
+        "over18=true",
+        "notSanctioned=true"
+      ],
+      "undisclosedCount": 4,
+      "binding": {
+        "nonce": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+        "walletAddress": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contractId": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "networkPassphrase": "Test SDF Network ; September 2015",
+        "ledgerExpiry": 18280
+      },
+      "bindingCanonicalBytes": "000000257374656c6c61726f6e72616d702f70726573656e746174696f6e2d62696e64696e672f7631000000200f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f000000038434251484e415853493535475832474e36443637474b3742485650534c4a55475a51455537574a354c4b5235504e5543474c494d414f344b0000003843444c3435455542324749464650324b4a4734554c424c4149423656543748574756504936355436473656455a4f54554c575053515a493600000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000000400004768",
+      "bindingDigest": "447cd7a78c1703815206de980694b2a00cf4eb656c463bf29cee18bc13d7b6da",
+      "presentationHeader": "5fc5fb4633e29a5359174c1260d6e448444d043f94c4016e9d3a1693c71c1340",
+      "sorobanBinding": {
+        "subject": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contract": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "nonceHex": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+        "ledgerExpiry": 18280,
+        "networkId": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472"
+      },
+      "proof": {
+        "compressed": "877186f80280d122c2165bdbbc39ef4f45dca8bd47accd3b2c2e73294c72e843dd63232bb54ccb1541531f03f3e89849903ba71bcb7b83091b4d4b543f1d264d619de1b11fd2fe27c61d44909ee312e5de81c13eb256f85a79e73b8b49b4e93c8605eac839bcce2ed2f54f39013a9c7931d8bf9b095aa70fba712d6bc61ef8e23b5d5584e5004efe72f5a8306489faf041e278b2db606aaacaf4a23e9fadc7710056332b1cf94542bac667f9b6a181b87140fbdc1b8a3b4f9980e463bb93a82468df0006b6c2b0db939f16d29190d01e3d4e8b9c59586f1de7e7a2f554b8e4dbe5e0b9413b6b54e14e0f9ead154f89152e79b7cbe0d89073e90e34a65d1a0ee1d1723eb32969b940b2518641403e17fd21211a4f6152cbc4dce18a1e67abfd95e4d849bccb0ea029bd51ec30ceeceb3440d12ee5a6264477f89c16e1681e97f7265cc37d995c8e7e4a3faae9eabc03f612ed6cab81033f66d55f4b62b2ce599210e62517416acc17bcbaeef31055447c06e3b87e9411188effa8a963954c2fae728d1788b00bb516297a0ca23dc12e5a",
+        "length": 400,
+        "sizeLaw": "144 + 32*(4 + 4) = 400"
+      },
+      "soroban": {
+        "abar": "077186f80280d122c2165bdbbc39ef4f45dca8bd47accd3b2c2e73294c72e843dd63232bb54ccb1541531f03f3e89849047d5e44db60b7368c3c2560a4d43cb549721761fc91b28d500c4183a758aba27ddc1f750c31827dd3e12b04a450530b",
+        "bbar": "103ba71bcb7b83091b4d4b543f1d264d619de1b11fd2fe27c61d44909ee312e5de81c13eb256f85a79e73b8b49b4e93c0c16e7df0269f393f327dc98906c74e27ac31275d899b03c24ee2b6e64f16da462df4fe497afb6e7e8e62eb29862834e",
+        "d": "0605eac839bcce2ed2f54f39013a9c7931d8bf9b095aa70fba712d6bc61ef8e23b5d5584e5004efe72f5a8306489faf003f6d6d76cabed6ac402a6aeefa86879deaa4d9dda5319150b7395d6cf5748b112464fb0ad2e737648904935b78089ee",
+        "eHat": "41e278b2db606aaacaf4a23e9fadc7710056332b1cf94542bac667f9b6a181b8",
+        "r1Hat": "7140fbdc1b8a3b4f9980e463bb93a82468df0006b6c2b0db939f16d29190d01e",
+        "r3Hat": "3d4e8b9c59586f1de7e7a2f554b8e4dbe5e0b9413b6b54e14e0f9ead154f8915",
+        "mHat": [
+          "2e79b7cbe0d89073e90e34a65d1a0ee1d1723eb32969b940b2518641403e17fd",
+          "21211a4f6152cbc4dce18a1e67abfd95e4d849bccb0ea029bd51ec30ceeceb34",
+          "40d12ee5a6264477f89c16e1681e97f7265cc37d995c8e7e4a3faae9eabc03f6",
+          "12ed6cab81033f66d55f4b62b2ce599210e62517416acc17bcbaeef31055447c"
+        ],
+        "challenge": "06e3b87e9411188effa8a963954c2fae728d1788b00bb516297a0ca23dc12e5a",
+        "flat": "077186f80280d122c2165bdbbc39ef4f45dca8bd47accd3b2c2e73294c72e843dd63232bb54ccb1541531f03f3e89849047d5e44db60b7368c3c2560a4d43cb549721761fc91b28d500c4183a758aba27ddc1f750c31827dd3e12b04a450530b103ba71bcb7b83091b4d4b543f1d264d619de1b11fd2fe27c61d44909ee312e5de81c13eb256f85a79e73b8b49b4e93c0c16e7df0269f393f327dc98906c74e27ac31275d899b03c24ee2b6e64f16da462df4fe497afb6e7e8e62eb29862834e0605eac839bcce2ed2f54f39013a9c7931d8bf9b095aa70fba712d6bc61ef8e23b5d5584e5004efe72f5a8306489faf003f6d6d76cabed6ac402a6aeefa86879deaa4d9dda5319150b7395d6cf5748b112464fb0ad2e737648904935b78089ee41e278b2db606aaacaf4a23e9fadc7710056332b1cf94542bac667f9b6a181b87140fbdc1b8a3b4f9980e463bb93a82468df0006b6c2b0db939f16d29190d01e3d4e8b9c59586f1de7e7a2f554b8e4dbe5e0b9413b6b54e14e0f9ead154f89152e79b7cbe0d89073e90e34a65d1a0ee1d1723eb32969b940b2518641403e17fd21211a4f6152cbc4dce18a1e67abfd95e4d849bccb0ea029bd51ec30ceeceb3440d12ee5a6264477f89c16e1681e97f7265cc37d995c8e7e4a3faae9eabc03f612ed6cab81033f66d55f4b62b2ce599210e62517416acc17bcbaeef31055447c06e3b87e9411188effa8a963954c2fae728d1788b00bb516297a0ca23dc12e5a",
+        "flatLength": 544
+      },
+      "expect": {
+        "verify": true
+      }
+    },
+    {
+      "name": "other-contract",
+      "note": "Identical disclosure, different contractId. Verifying this against BASE_BINDING must fail.",
+      "frozen": false,
+      "disclosedIndexes": [
+        6,
+        8
+      ],
+      "disclosedMessages": [
+        "over18=true",
+        "notSanctioned=true"
+      ],
+      "undisclosedCount": 10,
+      "binding": {
+        "nonce": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "walletAddress": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+        "networkPassphrase": "Test SDF Network ; September 2015",
+        "ledgerExpiry": 18280
+      },
+      "bindingCanonicalBytes": "000000257374656c6c61726f6e72616d702f70726573656e746174696f6e2d62696e64696e672f76310000002000112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00000038434251484e415853493535475832474e36443637474b3742485650534c4a55475a51455537574a354c4b5235504e5543474c494d414f344b0000003843444c5a46433353594a59445a54374b3637565a373548504a56494555564e49584634375a4732464232524d51515655324848474359534300000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000000400004768",
+      "bindingDigest": "50fc16f926ec5ef7c64dad17f91cc4a4e217a61e5fdd75203ce1e7fb9badd9dd",
+      "presentationHeader": "f2c42731364dc2fa53f54ca728633fc5f5947d0213e3bce3b2c8efe6e3b88dc1",
+      "sorobanBinding": {
+        "subject": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contract": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+        "nonceHex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "ledgerExpiry": 18280,
+        "networkId": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472"
+      },
+      "proof": {
+        "compressed": "93bbb884f6198a22c8ef19c940a7db8ec743ea3e68bb634c2355cadb09be598e09adc1d1a851f6b982402b755af68aea9041ee4fdf0c4b62767b23c421809e6db19fa04ad8017fcd3246d8327d7dd914c9e6e9bfb843f9e5d1940e16b037ff8695557dcfe207d7def04d2a26efcb5a48417ada673c7f184a4ba47dd4f2d38f9b6b1c21ff68126ff04bfdc29ef9d4136400d36af65064c0b93dccb2bf6437e735ba925a63f263a390a3c045ad148ab443394cee39806b4d1e7a86ab479e5a7a2509cde7f31e4bef1e92e8f4d85c856b37389acc371444a0692437d255f15a1a64a6d13ce50a464270b36235a4417edee91e890505f118e8268fb39b9c629db86da90eac523227876fb78212522078fa06227e2a34bea88418bf9b4f23e10fd04cf93edcf665fe026391980873c5f321923648115ee5ac50206444da3dffb91c12742e100240797a37a33df6811364554216485cd31cdbe3886dd0ca001d8c630f3f19eb7933ef944164a85caa7a0e64f500a75e307ccbeb9fdded87410d3f256208e78f1b6257cc6f79484a27e7efc29b1cd2a74d399d386711324de9472b5626e9440a90fea83a1d272318572921e44b6533ded2b30f00d6c71cd8c1bbc3232d4b5cbf1077e096293348d3cde7dad4725881cc5dfcd56a52824b08f70517ff596818198e88ac091428620c12712fd4c2131e239727f89eef761523de0d8e7cd11806400393a9bb85078d08ee329cae8e70414db5a5d131c4292a172db715743668f68c94604aef8b7f6a76acd06c40354c066778f3b9fd02334bcc32a1a28342dcfda29976d75197f4c4aed18bbbc165",
+        "length": 592,
+        "sizeLaw": "144 + 32*(4 + 10) = 592"
+      },
+      "soroban": {
+        "abar": "13bbb884f6198a22c8ef19c940a7db8ec743ea3e68bb634c2355cadb09be598e09adc1d1a851f6b982402b755af68aea099957ae8254cb80f8632165c85bdbcf36dd9a18968a3d056b071d535b5f753c0fa6f6798ff0c4b402157ad56567ed29",
+        "bbar": "1041ee4fdf0c4b62767b23c421809e6db19fa04ad8017fcd3246d8327d7dd914c9e6e9bfb843f9e5d1940e16b037ff8609383e1f4d91ae0aa992a72df103b2bb43f97a8a94f928e62426c3207e6894f0c0e8ca4535575f44ef8fb6cb065d6ff2",
+        "d": "15557dcfe207d7def04d2a26efcb5a48417ada673c7f184a4ba47dd4f2d38f9b6b1c21ff68126ff04bfdc29ef9d4136408c5f81e62417130af07cf2dbc90a164504244a8c45293100c2d43a078482d4791bfa883999a2cad8ebd69fda9e1a8b2",
+        "eHat": "00d36af65064c0b93dccb2bf6437e735ba925a63f263a390a3c045ad148ab443",
+        "r1Hat": "394cee39806b4d1e7a86ab479e5a7a2509cde7f31e4bef1e92e8f4d85c856b37",
+        "r3Hat": "389acc371444a0692437d255f15a1a64a6d13ce50a464270b36235a4417edee9",
+        "mHat": [
+          "1e890505f118e8268fb39b9c629db86da90eac523227876fb78212522078fa06",
+          "227e2a34bea88418bf9b4f23e10fd04cf93edcf665fe026391980873c5f32192",
+          "3648115ee5ac50206444da3dffb91c12742e100240797a37a33df68113645542",
+          "16485cd31cdbe3886dd0ca001d8c630f3f19eb7933ef944164a85caa7a0e64f5",
+          "00a75e307ccbeb9fdded87410d3f256208e78f1b6257cc6f79484a27e7efc29b",
+          "1cd2a74d399d386711324de9472b5626e9440a90fea83a1d272318572921e44b",
+          "6533ded2b30f00d6c71cd8c1bbc3232d4b5cbf1077e096293348d3cde7dad472",
+          "5881cc5dfcd56a52824b08f70517ff596818198e88ac091428620c12712fd4c2",
+          "131e239727f89eef761523de0d8e7cd11806400393a9bb85078d08ee329cae8e",
+          "70414db5a5d131c4292a172db715743668f68c94604aef8b7f6a76acd06c4035"
+        ],
+        "challenge": "4c066778f3b9fd02334bcc32a1a28342dcfda29976d75197f4c4aed18bbbc165",
+        "flat": "13bbb884f6198a22c8ef19c940a7db8ec743ea3e68bb634c2355cadb09be598e09adc1d1a851f6b982402b755af68aea099957ae8254cb80f8632165c85bdbcf36dd9a18968a3d056b071d535b5f753c0fa6f6798ff0c4b402157ad56567ed291041ee4fdf0c4b62767b23c421809e6db19fa04ad8017fcd3246d8327d7dd914c9e6e9bfb843f9e5d1940e16b037ff8609383e1f4d91ae0aa992a72df103b2bb43f97a8a94f928e62426c3207e6894f0c0e8ca4535575f44ef8fb6cb065d6ff215557dcfe207d7def04d2a26efcb5a48417ada673c7f184a4ba47dd4f2d38f9b6b1c21ff68126ff04bfdc29ef9d4136408c5f81e62417130af07cf2dbc90a164504244a8c45293100c2d43a078482d4791bfa883999a2cad8ebd69fda9e1a8b200d36af65064c0b93dccb2bf6437e735ba925a63f263a390a3c045ad148ab443394cee39806b4d1e7a86ab479e5a7a2509cde7f31e4bef1e92e8f4d85c856b37389acc371444a0692437d255f15a1a64a6d13ce50a464270b36235a4417edee91e890505f118e8268fb39b9c629db86da90eac523227876fb78212522078fa06227e2a34bea88418bf9b4f23e10fd04cf93edcf665fe026391980873c5f321923648115ee5ac50206444da3dffb91c12742e100240797a37a33df6811364554216485cd31cdbe3886dd0ca001d8c630f3f19eb7933ef944164a85caa7a0e64f500a75e307ccbeb9fdded87410d3f256208e78f1b6257cc6f79484a27e7efc29b1cd2a74d399d386711324de9472b5626e9440a90fea83a1d272318572921e44b6533ded2b30f00d6c71cd8c1bbc3232d4b5cbf1077e096293348d3cde7dad4725881cc5dfcd56a52824b08f70517ff596818198e88ac091428620c12712fd4c2131e239727f89eef761523de0d8e7cd11806400393a9bb85078d08ee329cae8e70414db5a5d131c4292a172db715743668f68c94604aef8b7f6a76acd06c40354c066778f3b9fd02334bcc32a1a28342dcfda29976d75197f4c4aed18bbbc165",
+        "flatLength": 736
+      },
+      "expect": {
+        "verify": true
+      }
+    },
+    {
+      "name": "expired-bound",
+      "note": "ledgerExpiry already in the past. Cryptographically valid, operationally dead.",
+      "frozen": true,
+      "disclosedIndexes": [
+        6,
+        8
+      ],
+      "disclosedMessages": [
+        "over18=true",
+        "notSanctioned=true"
+      ],
+      "undisclosedCount": 10,
+      "binding": {
+        "nonce": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "walletAddress": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contractId": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "networkPassphrase": "Test SDF Network ; September 2015",
+        "ledgerExpiry": 1000
+      },
+      "bindingCanonicalBytes": "000000257374656c6c61726f6e72616d702f70726573656e746174696f6e2d62696e64696e672f76310000002000112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00000038434251484e415853493535475832474e36443637474b3742485650534c4a55475a51455537574a354c4b5235504e5543474c494d414f344b0000003843444c3435455542324749464650324b4a4734554c424c4149423656543748574756504936355436473656455a4f54554c575053515a493600000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd47200000004000003e8",
+      "bindingDigest": "7d9c6b8d5cb3d2b808ce805044c016d80a6a10bfc48b40801391a5baabceb817",
+      "presentationHeader": "2571bd729a7b3c8687cff2a46961b512bf4bdd09859da4aab7a78cda0dc95d03",
+      "sorobanBinding": {
+        "subject": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contract": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "nonceHex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "ledgerExpiry": 1000,
+        "networkId": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472"
+      },
+      "proof": {
+        "compressed": "96db8d7a842101bb809876bd0336154f688fc2c4ec6f8b8d614962425b2432eab7b6a410f3892dc6dbca41b1d04b3bb69644b78b0c3e87d5b1638b5a675e2be45fc4dfe7d24233cf157e22184bb8b26b47a20e1ff6fedb46a8b1f5f1e3f988ee8ad5fb1ee37dc28e1f5f31d8df693f8f240cbd4a5cf784465d8514b21848fb503423dca7a946e273283ca1f6d97480ec5a0f292686d47f7e7113e92438b2fb8300ea17cfadc605eaff473729418807344e98f0850c40fed9110dcb4e4a78d3c4bb4614769cd18748e15d6920122cba6e14a507ebe1dc92d2613a0e12e35f35ebc3b8aa5eba39f5e75e79d21157bfca65531c91e86927f982e9a1825370816e678bc1e037b44236c386b4f5c09e40880a11bcaf8c4d446c9045627def86e69ee79f8274d64be045bfd46f3abf3553047b714ae104220a82a43fee2c84d4cab9341ab7885108661bf61edfb1358b09c5610f32e1fde5db71492619deafe840d7aa52fa535a305df97c51962321bb2a9dc82659754cfb4fa3045b0efbe8101546543106a9eb1c755ad270feccf415ddbb673e46e00f85d27452f41dbc5171193399a2aa83cdb5a894507ce08b7fd0bc643536b1a5fca30ce211519a6c4970e7bb0f83c03711d5b225e1fea1101709dd753c310914c151e5d80bd02f360627fe1c3e3e534b951ad5ab4e163c2cccfa4b560269e36899340fd04e85fe7d92e04a2ef8e80569ef3ba7dc2770b468789dc5d9796c1d51829862e12c36681a60f13a699038162c516ec4d56c98f726de0d540b4b18614d167bab2e1d68c71e75091ae5327ebfea84c2e1c5a385a119b3fd3ba1a6",
+        "length": 592,
+        "sizeLaw": "144 + 32*(4 + 10) = 592"
+      },
+      "soroban": {
+        "abar": "16db8d7a842101bb809876bd0336154f688fc2c4ec6f8b8d614962425b2432eab7b6a410f3892dc6dbca41b1d04b3bb605d0cfabeb88a17bbc03d9b9289fd66b409a01d927e090edacd07cb5ead3bf4e10d04be2204f709904dcd289e103af2a",
+        "bbar": "1644b78b0c3e87d5b1638b5a675e2be45fc4dfe7d24233cf157e22184bb8b26b47a20e1ff6fedb46a8b1f5f1e3f988ee0c029a8fb22e167c3a7f263173170955626f01b1994f1f574376a684b7c0aac48c19a880845c0decd8d79d8af682046d",
+        "d": "0ad5fb1ee37dc28e1f5f31d8df693f8f240cbd4a5cf784465d8514b21848fb503423dca7a946e273283ca1f6d97480ec07ba4f593e274eef9696c86322bf66a36f3f7728943534e09f6fe9fa5b4b1a5ee8d8e293e1e89c79824acd6418e94684",
+        "eHat": "5a0f292686d47f7e7113e92438b2fb8300ea17cfadc605eaff47372941880734",
+        "r1Hat": "4e98f0850c40fed9110dcb4e4a78d3c4bb4614769cd18748e15d6920122cba6e",
+        "r3Hat": "14a507ebe1dc92d2613a0e12e35f35ebc3b8aa5eba39f5e75e79d21157bfca65",
+        "mHat": [
+          "531c91e86927f982e9a1825370816e678bc1e037b44236c386b4f5c09e40880a",
+          "11bcaf8c4d446c9045627def86e69ee79f8274d64be045bfd46f3abf3553047b",
+          "714ae104220a82a43fee2c84d4cab9341ab7885108661bf61edfb1358b09c561",
+          "0f32e1fde5db71492619deafe840d7aa52fa535a305df97c51962321bb2a9dc8",
+          "2659754cfb4fa3045b0efbe8101546543106a9eb1c755ad270feccf415ddbb67",
+          "3e46e00f85d27452f41dbc5171193399a2aa83cdb5a894507ce08b7fd0bc6435",
+          "36b1a5fca30ce211519a6c4970e7bb0f83c03711d5b225e1fea1101709dd753c",
+          "310914c151e5d80bd02f360627fe1c3e3e534b951ad5ab4e163c2cccfa4b5602",
+          "69e36899340fd04e85fe7d92e04a2ef8e80569ef3ba7dc2770b468789dc5d979",
+          "6c1d51829862e12c36681a60f13a699038162c516ec4d56c98f726de0d540b4b"
+        ],
+        "challenge": "18614d167bab2e1d68c71e75091ae5327ebfea84c2e1c5a385a119b3fd3ba1a6",
+        "flat": "16db8d7a842101bb809876bd0336154f688fc2c4ec6f8b8d614962425b2432eab7b6a410f3892dc6dbca41b1d04b3bb605d0cfabeb88a17bbc03d9b9289fd66b409a01d927e090edacd07cb5ead3bf4e10d04be2204f709904dcd289e103af2a1644b78b0c3e87d5b1638b5a675e2be45fc4dfe7d24233cf157e22184bb8b26b47a20e1ff6fedb46a8b1f5f1e3f988ee0c029a8fb22e167c3a7f263173170955626f01b1994f1f574376a684b7c0aac48c19a880845c0decd8d79d8af682046d0ad5fb1ee37dc28e1f5f31d8df693f8f240cbd4a5cf784465d8514b21848fb503423dca7a946e273283ca1f6d97480ec07ba4f593e274eef9696c86322bf66a36f3f7728943534e09f6fe9fa5b4b1a5ee8d8e293e1e89c79824acd6418e946845a0f292686d47f7e7113e92438b2fb8300ea17cfadc605eaff473729418807344e98f0850c40fed9110dcb4e4a78d3c4bb4614769cd18748e15d6920122cba6e14a507ebe1dc92d2613a0e12e35f35ebc3b8aa5eba39f5e75e79d21157bfca65531c91e86927f982e9a1825370816e678bc1e037b44236c386b4f5c09e40880a11bcaf8c4d446c9045627def86e69ee79f8274d64be045bfd46f3abf3553047b714ae104220a82a43fee2c84d4cab9341ab7885108661bf61edfb1358b09c5610f32e1fde5db71492619deafe840d7aa52fa535a305df97c51962321bb2a9dc82659754cfb4fa3045b0efbe8101546543106a9eb1c755ad270feccf415ddbb673e46e00f85d27452f41dbc5171193399a2aa83cdb5a894507ce08b7fd0bc643536b1a5fca30ce211519a6c4970e7bb0f83c03711d5b225e1fea1101709dd753c310914c151e5d80bd02f360627fe1c3e3e534b951ad5ab4e163c2cccfa4b560269e36899340fd04e85fe7d92e04a2ef8e80569ef3ba7dc2770b468789dc5d9796c1d51829862e12c36681a60f13a699038162c516ec4d56c98f726de0d540b4b18614d167bab2e1d68c71e75091ae5327ebfea84c2e1c5a385a119b3fd3ba1a6",
+        "flatLength": 736
+      },
+      "expect": {
+        "verify": true
+      }
+    }
+  ],
+  "negative": [
+    {
+      "name": "tampered-challenge",
+      "note": "Low bit of the final challenge scalar flipped. Parses fine; the math must reject.",
+      "basedOn": "standard-onramp",
+      "mutation": {
+        "kind": "flip-bit",
+        "byteOffset": 591,
+        "bit": 0
+      },
+      "proof": {
+        "compressed": "ac1665b7fc193190f57935d026712cb5c4f2a60c03397d1eea7abd0adfa45caa4509ade834fc786e507236d2d4a71810b3ee7f605a425abc70057dda413bb2d517eecc7c2fc3f45a922d51fabd3535e67e3c8c30e00e0766ff2c849499a967b5b73022b46a22c81850a501045bd7d27c14fef30979673afb86e49b0ad4a539523ade1261b9c7d9299bbfc8c9c73628143c8001bcccb219f833d395e50a85ca17210b6446a79fe11f84964e119a5ddc353084b696d46872426d2775022a25db72a28bfae4c90c12926e4987ded80a2f2417158a06648519b2b72810bdce0b321b478f3a85047914fd026afa8c9d517e81327f11994c14738e1be14d026547a5968beb470b9c373aeacb5f7737af6c6f014d386bfe1f45362411fc7832a765076c10c6d9afac0c998aa2e27e0a0e2269b8031ae4a09799b2d6e73f1f49592147d08ba943fa1ffefae32fcd7b557eca32f242038354da00049232217d1ba3f1cc977a2fe97aa1970c6b79fb377c086dac34275159da6f122de5c739e7bc94f720ab46927068806b67072d6ec1f6ac2eb97b62a4e2ef814a34a2226242265aeca021c300f0fc5477807e96b56b7e992ad12a1ab252973cf18d6a94439f39682c01a9ecb61ac1c8492cf4e55bf2d3b7a812ee6cb95f617927aee328e26d8ab75afe67cee5bd3626dd0a6ec70c5cacf257a990179cf4ea1b4ddfebbf84bcb401c6c28da21815f6209e9ded53494fcecb14974f3351f3eca345fc9be354b7149a0579975b9c8d3ece758bc6d02e4a447f2947f46721f765cf3d162ea14a3fb1891186297716f4a2a72b515178a5c6e28ff7a67a"
+      },
+      "expect": {
+        "verify": false,
+        "reason": "bbs-invalid"
+      }
+    },
+    {
+      "name": "tampered-abar",
+      "note": "Low bit of the compressed Abar point flipped. In principle this can die at point decode OR in the pairing; against THESE frozen bytes it deterministically dies at decode, so the reason is pinned to malformed-proof rather than left as an alternation \u2014 a `bbs-invalid|malformed-proof` would let a real change, e.g. the curve library returning false where it used to throw, pass unnoticed. It read \"bbs-invalid-or-malformed\" until the small-items pass, and \"malformed\" is not a reason, so nothing could assert it \u2014 which is how this case sat in the generic `error` bucket unnoticed.",
+      "basedOn": "standard-onramp",
+      "mutation": {
+        "kind": "flip-bit",
+        "byteOffset": 47,
+        "bit": 0
+      },
+      "proof": {
+        "compressed": "ac1665b7fc193190f57935d026712cb5c4f2a60c03397d1eea7abd0adfa45caa4509ade834fc786e507236d2d4a71811b3ee7f605a425abc70057dda413bb2d517eecc7c2fc3f45a922d51fabd3535e67e3c8c30e00e0766ff2c849499a967b5b73022b46a22c81850a501045bd7d27c14fef30979673afb86e49b0ad4a539523ade1261b9c7d9299bbfc8c9c73628143c8001bcccb219f833d395e50a85ca17210b6446a79fe11f84964e119a5ddc353084b696d46872426d2775022a25db72a28bfae4c90c12926e4987ded80a2f2417158a06648519b2b72810bdce0b321b478f3a85047914fd026afa8c9d517e81327f11994c14738e1be14d026547a5968beb470b9c373aeacb5f7737af6c6f014d386bfe1f45362411fc7832a765076c10c6d9afac0c998aa2e27e0a0e2269b8031ae4a09799b2d6e73f1f49592147d08ba943fa1ffefae32fcd7b557eca32f242038354da00049232217d1ba3f1cc977a2fe97aa1970c6b79fb377c086dac34275159da6f122de5c739e7bc94f720ab46927068806b67072d6ec1f6ac2eb97b62a4e2ef814a34a2226242265aeca021c300f0fc5477807e96b56b7e992ad12a1ab252973cf18d6a94439f39682c01a9ecb61ac1c8492cf4e55bf2d3b7a812ee6cb95f617927aee328e26d8ab75afe67cee5bd3626dd0a6ec70c5cacf257a990179cf4ea1b4ddfebbf84bcb401c6c28da21815f6209e9ded53494fcecb14974f3351f3eca345fc9be354b7149a0579975b9c8d3ece758bc6d02e4a447f2947f46721f765cf3d162ea14a3fb1891186297716f4a2a72b515178a5c6e28ff7a67b"
+      },
+      "expect": {
+        "verify": false,
+        "reason": "malformed-proof"
+      }
+    },
+    {
+      "name": "tampered-mhat0",
+      "note": "First hidden-message response corrupted \u2014 this is the \"lie about a hidden attribute\" case.",
+      "basedOn": "standard-onramp",
+      "mutation": {
+        "kind": "flip-bit",
+        "byteOffset": 240,
+        "bit": 0
+      },
+      "proof": {
+        "compressed": "ac1665b7fc193190f57935d026712cb5c4f2a60c03397d1eea7abd0adfa45caa4509ade834fc786e507236d2d4a71810b3ee7f605a425abc70057dda413bb2d517eecc7c2fc3f45a922d51fabd3535e67e3c8c30e00e0766ff2c849499a967b5b73022b46a22c81850a501045bd7d27c14fef30979673afb86e49b0ad4a539523ade1261b9c7d9299bbfc8c9c73628143c8001bcccb219f833d395e50a85ca17210b6446a79fe11f84964e119a5ddc353084b696d46872426d2775022a25db72a28bfae4c90c12926e4987ded80a2f2417158a06648519b2b72810bdce0b321b478f3a85047914fd026afa8c9d517e81337f11994c14738e1be14d026547a5968beb470b9c373aeacb5f7737af6c6f014d386bfe1f45362411fc7832a765076c10c6d9afac0c998aa2e27e0a0e2269b8031ae4a09799b2d6e73f1f49592147d08ba943fa1ffefae32fcd7b557eca32f242038354da00049232217d1ba3f1cc977a2fe97aa1970c6b79fb377c086dac34275159da6f122de5c739e7bc94f720ab46927068806b67072d6ec1f6ac2eb97b62a4e2ef814a34a2226242265aeca021c300f0fc5477807e96b56b7e992ad12a1ab252973cf18d6a94439f39682c01a9ecb61ac1c8492cf4e55bf2d3b7a812ee6cb95f617927aee328e26d8ab75afe67cee5bd3626dd0a6ec70c5cacf257a990179cf4ea1b4ddfebbf84bcb401c6c28da21815f6209e9ded53494fcecb14974f3351f3eca345fc9be354b7149a0579975b9c8d3ece758bc6d02e4a447f2947f46721f765cf3d162ea14a3fb1891186297716f4a2a72b515178a5c6e28ff7a67b"
+      },
+      "expect": {
+        "verify": false,
+        "reason": "bbs-invalid"
+      }
+    },
+    {
+      "name": "wrong-issuer-key",
+      "note": "Untouched standard-onramp proof verified against a different issuer public key.",
+      "basedOn": "standard-onramp",
+      "mutation": {
+        "kind": "substitute-public-key"
+      },
+      "publicKey": {
+        "compressed": "9478b44dfbe2895fd5e9fab3546756359083ac2ca323e31498ba6edc014ab637c6a255a142039a098c75465281d74cbb095e5859b31e6c4b60e9c805adc7c949543c4c4d7f9d96a35b60e5826c7a6ba323ba33c1d8e908802e562f073cdb7ebd",
+        "uncompressed": "1478b44dfbe2895fd5e9fab3546756359083ac2ca323e31498ba6edc014ab637c6a255a142039a098c75465281d74cbb095e5859b31e6c4b60e9c805adc7c949543c4c4d7f9d96a35b60e5826c7a6ba323ba33c1d8e908802e562f073cdb7ebd067ead0433ac33c01299421fe6418c05f93c2fe6764e2086e43224e2282e2365514c81efc965e515fd6853d47e39b27414f1edcd2706413158a6974bfb06bf63a585aca18159c952748408a4b4934bc7cb2a5cdc3e2cd47682b58601bf0b3b2d"
+      },
+      "expect": {
+        "verify": false,
+        "reason": "bbs-invalid"
+      }
+    },
+    {
+      "name": "wrong-nonce",
+      "note": "Untouched proof verified against a binding whose nonce differs in one nibble.",
+      "basedOn": "standard-onramp",
+      "mutation": {
+        "kind": "substitute-binding"
+      },
+      "binding": {
+        "nonce": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeef0",
+        "walletAddress": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contractId": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "networkPassphrase": "Test SDF Network ; September 2015",
+        "ledgerExpiry": 18280
+      },
+      "presentationHeader": "60b139620e014f7a95862af37b5298c333f97f982307754b9bbcd132d6210b09",
+      "expect": {
+        "verify": false,
+        "reason": "binding-mismatch"
+      }
+    },
+    {
+      "name": "wrong-contract",
+      "note": "The other-contract proof verified against BASE_BINDING \u2014 cross-contract replay.",
+      "basedOn": "other-contract",
+      "mutation": {
+        "kind": "substitute-binding"
+      },
+      "binding": {
+        "nonce": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "walletAddress": "CBQHNAXSI55GX2GN6D67GK7BHVPSLJUGZQEU7WJ5LKR5PNUCGLIMAO4K",
+        "contractId": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "networkPassphrase": "Test SDF Network ; September 2015",
+        "ledgerExpiry": 18280
+      },
+      "expect": {
+        "verify": false,
+        "reason": "binding-mismatch"
+      }
+    },
+    {
+      "name": "wrong-wallet",
+      "note": "An untouched proof verified against a binding whose walletAddress is a different holder: the proof must not verify. Also the only vector that canonicalises a G-address, so a strkey-length assumption in canonicalBindingBytes would go red here.",
+      "basedOn": "standard-onramp",
+      "mutation": {
+        "kind": "substitute-binding"
+      },
+      "binding": {
+        "nonce": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "walletAddress": "GDYSMOGGSUXM7W36ORWLWGA4MI2YUSKJX4243SZGKFRHMEH5AZKB6YQ6",
+        "contractId": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "networkPassphrase": "Test SDF Network ; September 2015",
+        "ledgerExpiry": 18280
+      },
+      "presentationHeader": "f3c84fd99957caa4d1411840d0996486f9debd42b7823d1bea940b7e862f8285",
+      "expect": {
+        "verify": false,
+        "reason": "binding-mismatch"
+      }
+    },
+    {
+      "name": "wrong-wallet-rewritten-binding",
+      "note": "wrong-wallet leaves the proof struct declaring the binding it was derived for, so a TypeScript verifier rejects it at the self-declared binding digest compare (`binding-mismatch`) long before any cryptography runs. Here the attacker ALSO rewrites the declared binding to the victim's, so that door cannot answer and the rejection must come from the BBS+ math: the presentation header is derived from the binding, so the challenge no longer reproduces and ProofVerify fails (`bbs-invalid`). This is the case the Rust verifier must reproduce \u2014 it has no self-declared binding and therefore cannot ever answer `binding-mismatch`. Same walletAddress as wrong-wallet: an address the proof is not bound to",
+      "basedOn": "standard-onramp",
+      "mutation": {
+        "kind": "substitute-binding",
+        "declaredBindingRewritten": true
+      },
+      "binding": {
+        "nonce": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        "walletAddress": "GDYSMOGGSUXM7W36ORWLWGA4MI2YUSKJX4243SZGKFRHMEH5AZKB6YQ6",
+        "contractId": "CDL45EUB2GIFFP2KJG4ULBLAIB6VT7HWGVPI65T6G6VEZOTULWPSQZI6",
+        "networkPassphrase": "Test SDF Network ; September 2015",
+        "ledgerExpiry": 18280
+      },
+      "presentationHeader": "f3c84fd99957caa4d1411840d0996486f9debd42b7823d1bea940b7e862f8285",
+      "declaredBinding": "target",
+      "expect": {
+        "verify": false,
+        "reason": "bbs-invalid"
+      }
+    },
+    {
+      "name": "swapped-disclosed-messages",
+      "note": "Correct proof, but the two disclosed messages are supplied in reversed order.",
+      "basedOn": "standard-onramp",
+      "mutation": {
+        "kind": "swap-disclosed-messages"
+      },
+      "disclosedIndexes": [
+        6,
+        8
+      ],
+      "disclosedMessages": [
+        "notSanctioned=true",
+        "over18=true"
+      ],
+      "expect": {
+        "verify": false,
+        "reason": "message-index-mismatch"
+      }
+    },
+    {
+      "name": "claims-undisclosed-index",
+      "note": "Proof for {6,8} presented as if it also disclosed index 7 (over21). U no longer matches the byte length.",
+      "basedOn": "standard-onramp",
+      "mutation": {
+        "kind": "add-claimed-index"
+      },
+      "disclosedIndexes": [
+        6,
+        7,
+        8
+      ],
+      "disclosedMessages": [
+        "over18=true",
+        "over21=true",
+        "notSanctioned=true"
+      ],
+      "expect": {
+        "verify": false,
+        "reason": "disclosure-shape"
+      }
+    }
+  ]
+}

@@ -16,6 +16,7 @@
   },
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "test": "vitest run",
     "typecheck": "tsc --build && npm run typecheck --workspaces --if-present",
     "contracts:build": "cd contracts && stellar contract build",
     "contracts:test": "cd contracts && stellar contract build && cargo test"
