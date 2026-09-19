@@ -9,8 +9,7 @@
  *      issuer key, the status-list signer, the session store, the session-JWT issuer, and the
  *      applicant creator of the in-process mock KYC provider (`scripts/demo/mock-kyc.ts`).
  *   2. The public server: the landing page, the partner portal and its `/api/*` routes
- *      (`scripts/onboard/`), the browser copy of the Stellar SDK, plus a standalone `/demo` page
- *      that runs the same pipeline for an anonymous throwaway wallet.
+ *      (`scripts/onboard/`), and the browser copy of the Stellar SDK.
  *
  * A portal run (`scripts/demo/demo-flow.ts`) opens a real session on the gateway, records the
  * mock provider's verdict, issues a real BBS+ credential, derives a proof, and submits
@@ -35,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 
 import { Keypair } from '@stellar/stellar-sdk';
 
-import type { DemoDeps, EmitStep } from './demo/demo-flow.js';
+import type { DemoDeps } from './demo/demo-flow.js';
 import { JsonFileAccountStore, PortalSessionStore } from './onboard/accounts.js';
 import { InMemoryRunRegistry } from './onboard/kyc-run.js';
 import { handlePortalApi } from './onboard/portal-api.js';
@@ -190,7 +189,6 @@ function serveStatic(res: ServerResponse, pathname: string): void {
   let relativePath: string;
   if (pathname === '/' || pathname === '') relativePath = 'index.html';
   else if (pathname === '/portal' || pathname === '/portal/') relativePath = 'portal.html';
-  else if (pathname === '/demo' || pathname === '/demo/') relativePath = 'demo.html';
   else relativePath = pathname.replace(/^\/+/, '');
 
   if (relativePath.includes('\0')) {
@@ -226,52 +224,12 @@ function serveStatic(res: ServerResponse, pathname: string): void {
 /* 4. The public server                                                        */
 /* -------------------------------------------------------------------------- */
 
-/** What `/demo/run` calls: one anonymous run, emitting steps as it goes. */
-type DemoRunner = (outcome: 'approve' | 'reject', emit: EmitStep) => Promise<unknown>;
-
-/** Drive one anonymous run for the `/demo` page and stream its steps as server-sent events. */
-async function handleDemoRun(res: ServerResponse, url: URL, demo: DemoRunner): Promise<void> {
-  const outcome = url.searchParams.get('outcome') === 'reject' ? 'reject' : 'approve';
-  res.writeHead(200, {
-    'content-type': 'text/event-stream',
-    'cache-control': 'no-cache',
-    connection: 'keep-alive',
-    'x-accel-buffering': 'no',
-  });
-  res.flushHeaders();
-
-  let closed = false;
-  res.on('close', () => {
-    closed = true;
-  });
-  const write = (chunk: string): void => {
-    if (closed) return;
-    try {
-      res.write(chunk);
-    } catch {
-      closed = true;
-    }
-  };
-
-  try {
-    await demo(outcome, (step) => write(`data: ${JSON.stringify(step)}\n\n`));
-    write('event: done\ndata: {}\n\n');
-  } catch (err) {
-    const message = String((err as Error)?.message ?? err);
-    console.error(`[demo-web] demo run (${outcome}) failed: ${message}`);
-    write(`event: error\ndata: ${JSON.stringify({ message })}\n\n`);
-  } finally {
-    if (!closed) res.end();
-  }
-}
-
 async function handleRequest(
   req: IncomingMessage,
   url: URL,
   method: string,
   res: ServerResponse,
   portal: PortalApiDeps,
-  demo: DemoRunner,
 ): Promise<void> {
   const pathname = decodeURIComponent(url.pathname);
 
@@ -283,15 +241,6 @@ async function handleRequest(
       return;
     }
     serveFile(res, STELLAR_SDK_BROWSER_BUNDLE, 'text/javascript; charset=utf-8');
-    return;
-  }
-
-  if (pathname === '/demo/run') {
-    if (method !== 'GET') {
-      respondText(res, 405, 'method not allowed');
-      return;
-    }
-    await handleDemoRun(res, url, demo);
     return;
   }
 
@@ -307,7 +256,7 @@ async function handleRequest(
   serveStatic(res, pathname);
 }
 
-function startPublicServer(portal: PortalApiDeps, demo: DemoRunner): void {
+function startPublicServer(portal: PortalApiDeps): void {
   const server = createServer((req, res) => {
     let url: URL;
     try {
@@ -317,7 +266,7 @@ function startPublicServer(portal: PortalApiDeps, demo: DemoRunner): void {
       return;
     }
     const method = (req.method ?? 'GET').toUpperCase();
-    void handleRequest(req, url, method, res, portal, demo).catch((err: unknown) => {
+    void handleRequest(req, url, method, res, portal).catch((err: unknown) => {
       console.error(`[demo-web] request ${method} ${url.pathname} failed:`, err);
       if (!res.headersSent) {
         respondText(res, 500, 'internal demo-server error');
@@ -353,7 +302,7 @@ async function main(): Promise<void> {
   const { generateEs256KeyPair, signJws } = await import('@stellaronramp/gateway');
   const { generateIssuerKeyPair } = await import('@stellaronramp/identity');
   const { createMockKyc } = await import('./demo/mock-kyc.js');
-  const { runDemo, runOnboardingPipeline, readOnChainRecord } = await import('./demo/demo-flow.js');
+  const { runOnboardingPipeline, readOnChainRecord } = await import('./demo/demo-flow.js');
   const { JsonFileCredentialStore, JsonFileRevocationIndexAllocator, JsonFileStatusListStore } =
     await import('./onboard/durable.js');
   const { portalWalletMinter } = await import('./onboard/wallet.js');
@@ -507,7 +456,7 @@ async function main(): Promise<void> {
     chainEnabled,
   };
 
-  startPublicServer(portal, (outcome, emit) => runDemo(deps, { outcome, emit }));
+  startPublicServer(portal);
 }
 
 main().catch((err: unknown) => {

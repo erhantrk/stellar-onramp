@@ -12,9 +12,7 @@
  * a count or a length. The PII scan step is the proof of that for the presentation itself.
  */
 
-import { randomBytes } from 'node:crypto';
-
-import { Address, rpc } from '@stellar/stellar-sdk';
+import { rpc } from '@stellar/stellar-sdk';
 
 import {
   CLAIM_SPECS,
@@ -550,22 +548,6 @@ export async function runOnboardingPipeline(
 /* -------------------------------------------------------------------------- */
 /* Read-only view of a subject's record                                        */
 /* -------------------------------------------------------------------------- */
-
-/**
- * One anonymous run for the `/demo` page: a throwaway wallet address, the same pipeline the
- * portal drives. Nothing is stored — the page is a walkthrough, not an account.
- */
-export async function runDemo(
-  deps: DemoDeps,
-  args: { outcome: 'approve' | 'reject'; emit: EmitStep },
-): Promise<OnboardingResult> {
-  const cAddr = Address.contract(randomBytes(32)).toString();
-  return runOnboardingPipeline(deps, {
-    cAddr,
-    answer: args.outcome === 'approve' ? 'GREEN' : 'RED',
-    emit: args.emit,
-  });
-}
 
 export interface OnChainRecordView {
   subject: string;
