@@ -284,6 +284,55 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
 .chainrow .val{font-family:'IBM Plex Mono',monospace}
 .chainrow.yes .val{color:#1a7f37}
 .chainrow.no .val{color:#b42318}
+
+/* disclosure toggles, credential card, proof search, relying-app panel, timeline */
+.claims{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin-top:10px}
+.claim{
+  display:flex;align-items:flex-start;gap:9px;padding:10px 12px;border:1px solid var(--line-2);
+  border-radius:9px;cursor:pointer;background:#fff;transition:border-color .12s,background .12s;
+}
+.claim:hover{border-color:var(--brand)}
+.claim input{margin-top:2px;accent-color:var(--brand)}
+.claim b{display:block;font-size:13.5px;font-weight:600}
+.claim span.sub{display:block;font-size:12px;color:var(--muted);margin-top:1px}
+.claim.sel{border-color:var(--brand);background:var(--brand-bg,#fdf2f5)}
+.claim.off{opacity:.55;cursor:not-allowed}
+.claim.off b{text-decoration:line-through}
+.cardcred{border:1px solid var(--line-2);border-radius:12px;padding:14px;background:#fff;margin-top:12px}
+.cardcred .hd{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;
+  border:1px solid var(--line-2);font-family:var(--mono);font-size:11.5px;background:#f7f8fa;color:var(--muted);
+}
+.chip.shown{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+.chip.hidden-attr{filter:blur(.2px);opacity:.6}
+.chip .lock{font-size:10px}
+.search{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.search input{flex:1;min-width:200px;padding:9px 11px;border:1px solid var(--line-2);border-radius:8px;font-size:13px}
+.try{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.try button{
+  font-family:var(--mono);font-size:11.5px;padding:4px 9px;border-radius:999px;
+  border:1px solid var(--line-2);background:#fff;cursor:pointer;color:var(--muted);
+}
+.try button:hover{border-color:var(--brand);color:var(--brand)}
+.hit{margin-top:9px;font-family:var(--mono);font-size:12px;padding:9px 11px;border-radius:8px}
+.hit.none{background:var(--ok-bg);color:var(--ok)}
+.hit.found{background:var(--no-bg);color:var(--no)}
+.rapp{border:1px dashed var(--line-2);border-radius:12px;padding:14px;margin-top:16px;background:#fbfbfc}
+.rapp .tag{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim)}
+.rapp .row{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+.rapp .out{margin-top:10px;font-size:13px}
+.tl li{align-items:center}
+.tl .t{font-size:13.5px}
+.tl .ms{font-family:var(--mono);font-size:11px;color:var(--dim);margin-left:auto;flex:none}
+.tl details{margin-top:4px}
+.tl details summary{font-size:12px;color:var(--brand);cursor:pointer;list-style:none}
+.tl details summary::-webkit-details-marker{display:none}
+.tl details .d{margin-top:5px}
+.bar{height:4px;border-radius:999px;background:var(--line);overflow:hidden;margin:10px 0 14px}
+.bar i{display:block;height:100%;background:var(--brand);width:0;transition:width .3s ease}
 </style>
 </head>
 <body>
@@ -549,6 +598,15 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
                   </label>
                 </div>
                 <div id="kReview" class="note"></div>
+
+                <h4 style="font-size:15px;margin:18px 0 4px">What the proof reveals</h4>
+                <p class="small muted" style="margin-bottom:6px">
+                  Tick what this credential should prove. The proof discloses exactly these and
+                  nothing else, and the contract records only what the proof disclosed. Claims the
+                  provider did not grant cannot be chosen.
+                </p>
+                <div class="claims" id="kClaims"></div>
+                <p id="kClaimsNote" class="small muted" style="margin-top:8px"></p>
               </div>
 
               <div class="wactions">
@@ -560,10 +618,25 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
 
             <!-- progress -->
             <div id="kycProgress" hidden>
-              <p id="kRunState" class="small muted" style="margin-bottom:14px">
+              <p id="kRunState" class="small muted" style="margin-bottom:8px">
                 <span class="spinner"></span> Running verification…
               </p>
-              <ol class="stream" id="kStream"></ol>
+              <div class="bar"><i id="kBar"></i></div>
+              <div id="kCard"></div>
+              <ol class="stream tl" id="kStream"></ol>
+              <div id="kSearch" hidden>
+                <h4 style="font-size:14px;margin:16px 0 2px">Search the proof yourself</h4>
+                <p class="small muted">
+                  This searches the exact bytes a verifier receives, in your browser, in four
+                  encodings. Try the details you typed into the wizard.
+                </p>
+                <div class="search">
+                  <input type="text" id="kNeedle" placeholder="Type anything: a name, a date, a document number">
+                  <button class="btn btn-ghost" type="button" id="kFind">Search</button>
+                </div>
+                <div class="try" id="kTry"></div>
+                <div id="kHit" class="hit none" hidden></div>
+              </div>
               <div id="kResult" class="note" hidden></div>
               <div class="wactions">
                 <button class="btn btn-ghost" type="button" id="kAgain" hidden>Run verification again</button>
@@ -613,6 +686,25 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
             <p class="muted small">Connect and complete verification to see a record here.</p>
           </div>
         </div>
+
+        <div class="panel" id="rappPanel" hidden>
+          <div class="head"><h3>Another application, reading the same record</h3></div>
+          <div class="body">
+            <div class="rapp">
+              <div class="tag">age-gated checkout · not part of this server</div>
+              <p class="small" style="margin-top:8px">
+                A shop that sells to adults only. It knows nothing about you: it calls
+                <span class="mono">check(subject, OVER_18)</span> on the gate contract from this
+                browser and sells or refuses on the answer.
+              </p>
+              <div class="row">
+                <button class="btn btn-primary" type="button" id="rappBuy">Buy (age-restricted)</button>
+                <button class="btn btn-ghost" type="button" id="rappOther">Try with a wallet that never verified</button>
+              </div>
+              <div class="out" id="rappOut"></div>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -626,7 +718,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
   var EXPLORER = 'https://stellar.expert/explorer/testnet';
 
   var $ = function(id){ return document.getElementById(id); };
-  var state = { account: null, chainEnabled: true, activeRunId: null, activeOnrampRunId: null };
+  var state = { account: null, chainEnabled: true, activeRunId: null, activeOnrampRunId: null, chain: null, gateContractId: null };
 
   /* ---------------- helpers ---------------- */
 
@@ -733,6 +825,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     $('kResult').hidden = true;
     $('kAgain').hidden = true;
     $('kStream').textContent = '';
+    resetRunView();
     $('kRunState').innerHTML = '<span class="spinner"></span> Running verification…';
     streamRun(runId);
   }
@@ -996,7 +1089,107 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
 
   function kVal(id){ return ($(id).value || '').trim(); }
 
+
+  /* ---------------- what the proof reveals ----------------
+   * The toggles are predictions from the wizard's own answers (age from the date of birth,
+   * jurisdiction from the country); the provider's verdict at run time is what actually decides,
+   * and a claim it refuses simply contributes no bit to the record.
+   */
+  var JURISDICTION = ['AT','BE','CH','CZ','DE','DK','EE','ES','FI','FR','GB','IE','IT',
+                      'LT','LU','LV','NL','NO','PL','PT','SE','SI','SK'];
+  var CHAIN_BACKED = ['over18','over21','notSanctioned','jurisdictionOk'];
+  var CLAIM_UI = [
+    { name: 'over18',        label: 'Over 18',          sub: 'on the chain record' },
+    { name: 'over21',        label: 'Over 21',          sub: 'on the chain record' },
+    { name: 'notSanctioned', label: 'Not sanctioned',   sub: 'on the chain record' },
+    { name: 'jurisdictionOk',label: 'Country allowed',  sub: 'on the chain record' },
+    { name: 'notPep',        label: 'Not a PEP',        sub: 'credential only, no chain bit' },
+    { name: 'livenessOk',    label: 'Liveness passed',  sub: 'credential only, no chain bit' }
+  ];
+
+  function ageOn(dob){
+    if (!dob) return null;
+    var b = new Date(dob + 'T00:00:00Z');
+    if (isNaN(b.getTime())) return null;
+    var now = new Date();
+    var age = now.getUTCFullYear() - b.getUTCFullYear();
+    var m = now.getUTCMonth() - b.getUTCMonth();
+    if (m < 0 || (m === 0 && now.getUTCDate() < b.getUTCDate())) age -= 1;
+    return age;
+  }
+
+  // What the provider will grant, predicted from what the wizard holds right now.
+  function predictedGrants(){
+    var age = ageOn(kVal('kDob'));
+    var cc = kVal('kCountry');
+    return {
+      over18: age !== null && age >= 18,
+      over21: age !== null && age >= 21,
+      notSanctioned: true,
+      notPep: true,
+      jurisdictionOk: JURISDICTION.indexOf(cc) !== -1,
+      livenessOk: true
+    };
+  }
+
+  function renderClaimPicker(){
+    var grants = predictedGrants();
+    var box = $('kClaims');
+    var chosen = selectedClaims();
+    box.textContent = '';
+    CLAIM_UI.forEach(function(c){
+      var granted = grants[c.name];
+      var lab = document.createElement('label');
+      lab.className = 'claim' + (granted ? '' : ' off');
+      var input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = c.name;
+      input.disabled = !granted;
+      // Keep the previous ticks across re-renders; first render defaults to the gate pair.
+      input.checked = granted && (chosen.length ? chosen.indexOf(c.name) !== -1
+                                               : (c.name === 'over18' || c.name === 'notSanctioned'));
+      var txt = document.createElement('span');
+      var b = document.createElement('b'); b.textContent = c.label;
+      var sub = document.createElement('span'); sub.className = 'sub';
+      sub.textContent = granted ? c.sub : 'the provider will not grant this';
+      txt.appendChild(b); txt.appendChild(sub);
+      lab.appendChild(input); lab.appendChild(txt);
+      lab.classList.toggle('sel', input.checked);
+      input.addEventListener('change', function(){
+        lab.classList.toggle('sel', input.checked);
+        noteClaims();
+      });
+      box.appendChild(lab);
+    });
+    noteClaims();
+  }
+
+  function selectedClaims(){
+    return Array.prototype.map.call(
+      document.querySelectorAll('#kClaims input:checked'), function(i){ return i.value; });
+  }
+
+  function noteClaims(){
+    var sel = selectedClaims();
+    var onChain = sel.filter(function(n){ return CHAIN_BACKED.indexOf(n) !== -1; });
+    var el = $('kClaimsNote');
+    if (!sel.length){
+      el.textContent = 'Nothing selected: a proof has to state something.';
+      return;
+    }
+    if (!onChain.length){
+      el.textContent = 'Only credential-side claims selected. The record needs at least one of ' +
+        'over 18, over 21, not sanctioned or country allowed.';
+      return;
+    }
+    el.textContent = 'The proof will reveal the 6 metadata attributes plus ' + sel.length +
+      ' claim' + (sel.length === 1 ? '' : 's') + '; ' + (6 - sel.length) +
+      ' claim attribute' + (6 - sel.length === 1 ? '' : 's') + ' stay hidden under the same ' +
+      'signature. ' + onChain.length + ' will reach the claim record.';
+  }
+
   function renderReview(){
+    renderClaimPicker();
     var docName = $('kFile').files && $('kFile').files[0] ? $('kFile').files[0].name : ($('kDrop').dataset.skipped ? 'no image (skipped)' : 'no file selected');
     $('kReview').innerHTML =
       'Applicant: <b>' + escapeHtml((kVal('kFirst') || '—') + ' ' + (kVal('kLast') || '—')) + '</b><br>' +
@@ -1211,6 +1404,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
       // country) and keeps none of it. The document image never leaves the browser.
       var out = await api('/api/kyc/submit', { method: 'POST', body: {
         scenario: scenario,
+        disclose: selectedClaims(),
         applicant: {
           firstName: kVal('kFirst'),
           lastName: kVal('kLast'),
@@ -1225,6 +1419,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
       $('kResult').hidden = true;
       $('kAgain').hidden = true;
       $('kStream').textContent = '';
+      resetRunView();
       streamRun(out.runId);
     } catch (err){
       if (err.code === 'run_in_progress' && err.runId){
@@ -1292,20 +1487,44 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     });
   }
 
+  var KYC_STEP_COUNT = 11;
+  var runClock = {};
+
   function upsertStep(step, listId){
     var list = $(listId || 'kStream');
     var li = list.querySelector('[data-id="' + step.id + '"]');
     if (!li){
       li = document.createElement('li');
       li.dataset.id = step.id;
-      li.innerHTML = '<span class="mark"></span><div><div class="t"></div><div class="d"></div><div class="x"></div></div>';
+      li.innerHTML = '<span class="mark"></span><div style="flex:1;min-width:0">' +
+        '<div style="display:flex;align-items:baseline;gap:8px">' +
+        '<div class="t"></div><span class="ms"></span></div>' +
+        '<details><summary>why this matters</summary><div class="d"></div></details>' +
+        '<div class="x"></div></div>';
       list.appendChild(li);
+      // Elapsed time is measured from the previous row, which is what a reader wants to know:
+      // how long THIS step took, not how long the run has been going.
+      var now = Date.now();
+      li.dataset.started = String(now);
+      if (runClock.last) {
+        var prev = list.querySelector('[data-id="' + runClock.last + '"]');
+        if (prev && !prev.dataset.done){
+          prev.dataset.done = '1';
+          prev.querySelector('.ms').textContent = (now - Number(prev.dataset.started)) + ' ms';
+        }
+      }
+      runClock.last = step.id;
     }
     li.classList.toggle('ok', step.status === 'ok');
     li.classList.toggle('fail', step.status === 'fail');
     li.querySelector('.mark').textContent = step.status === 'ok' ? '✓' : step.status === 'fail' ? '✕' : '·';
     li.querySelector('.t').textContent = step.title;
     li.querySelector('.d').textContent = step.detail || '';
+
+    if (listId === undefined || listId === 'kStream'){
+      var done = list.querySelectorAll('li').length;
+      $('kBar').style.width = Math.min(100, Math.round((done / KYC_STEP_COUNT) * 100)) + '%';
+    }
 
     var x = li.querySelector('.x');
     x.textContent = '';
@@ -1322,6 +1541,140 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
       div.textContent = step.data.instructions.toLocaleString() + ' instructions · ' +
                         step.data.feeChargedStroops.toLocaleString() + ' stroops';
       x.appendChild(div);
+    }
+    if (step.id === 'credential' && step.data) renderCredentialCard(step.data, null);
+    if (step.id === 'proof' && step.data){
+      renderCredentialCard(null, step.data);
+      armProofSearch(step.data.serializedProof);
+    }
+  }
+
+  /* ---------------- the credential, as a card ---------------- */
+
+  var METADATA_ATTRS = ['schemaVersion','issuerId','revocationIndex','issuedAt','expiresAt','subjectBinding'];
+  var CLAIM_ATTRS = ['over18','over21','notSanctioned','notPep','jurisdictionOk','livenessOk'];
+  var credCard = { issued: false, disclosed: null };
+
+  function renderCredentialCard(issueData, proofData){
+    if (issueData) credCard.issued = true;
+    if (proofData) credCard.disclosed = proofData.disclosed || [];
+    if (!credCard.issued) return;
+
+    var shown = {};
+    if (credCard.disclosed){
+      // Disclosed messages are canonical `name=value` strings for claims, and bare values for the
+      // metadata block; match on the name prefix and fall back to position for the metadata.
+      credCard.disclosed.forEach(function(msg){
+        var eq = String(msg).indexOf('=');
+        if (eq > 0) shown[String(msg).slice(0, eq)] = String(msg).slice(eq + 1);
+      });
+      METADATA_ATTRS.forEach(function(n){ shown[n] = shown[n] === undefined ? '' : shown[n]; });
+    }
+
+    var box = $('kCard');
+    box.textContent = '';
+    var card = document.createElement('div');
+    card.className = 'cardcred';
+    var hd = document.createElement('div');
+    hd.className = 'hd';
+    hd.innerHTML = '<span>credential · 12 attributes</span><span>' +
+      (credCard.disclosed ? 'after selective disclosure' : 'issued, nothing revealed yet') + '</span>';
+    card.appendChild(hd);
+
+    var chips = document.createElement('div');
+    chips.className = 'chips';
+    METADATA_ATTRS.concat(CLAIM_ATTRS).forEach(function(name){
+      var isShown = credCard.disclosed !== null && Object.prototype.hasOwnProperty.call(shown, name);
+      var chip = document.createElement('span');
+      chip.className = 'chip' + (isShown ? ' shown' : (credCard.disclosed ? ' hidden-attr' : ''));
+      var val = isShown && shown[name] !== '' ? '=' + shown[name] : '';
+      chip.textContent = name + val;
+      if (!isShown && credCard.disclosed){
+        var lock = document.createElement('span');
+        lock.className = 'lock';
+        lock.textContent = '🔒';
+        chip.appendChild(lock);
+      }
+      chips.appendChild(chip);
+    });
+    card.appendChild(chips);
+
+    var note = document.createElement('p');
+    note.className = 'small muted';
+    note.style.marginTop = '10px';
+    note.textContent = credCard.disclosed
+      ? 'The locked attributes are still signed, and still inside the credential. A verifier receives only the lit ones.'
+      : 'Every attribute is signed under one BBS+ signature. The next step reveals only what you chose.';
+    card.appendChild(note);
+    box.appendChild(card);
+  }
+
+  /* ---------------- search the proof, in this tab ---------------- */
+
+  async function sha256Hex(text){
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.prototype.map.call(new Uint8Array(buf), function(b){
+      return ('0' + b.toString(16)).slice(-2);
+    }).join('');
+  }
+
+  function b64(text){
+    var bytes = new TextEncoder().encode(text);
+    var bin = '';
+    bytes.forEach(function(b){ bin += String.fromCharCode(b); });
+    return btoa(bin);
+  }
+
+  function hexOf(text){
+    return Array.prototype.map.call(new TextEncoder().encode(text), function(b){
+      return ('0' + b.toString(16)).slice(-2);
+    }).join('');
+  }
+
+  var proofHaystack = null;
+
+  function armProofSearch(serializedProof){
+    if (!serializedProof) return;
+    proofHaystack = JSON.stringify(serializedProof);
+    $('kSearch').hidden = false;
+    var tries = $('kTry');
+    tries.textContent = '';
+    [
+      { label: 'your date of birth', value: kVal('kDob') },
+      { label: 'your document number', value: kVal('kDocNumber') },
+      { label: 'your last name', value: kVal('kLast') },
+      { label: 'over18=true', value: 'over18=true' }
+    ].forEach(function(t){
+      if (!t.value) return;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = t.label;
+      b.addEventListener('click', function(){ $('kNeedle').value = t.value; runProofSearch(); });
+      tries.appendChild(b);
+    });
+  }
+
+  async function runProofSearch(){
+    var needle = ($('kNeedle').value || '').trim();
+    var out = $('kHit');
+    if (!needle || !proofHaystack){ out.hidden = true; return; }
+    var forms = [
+      ['utf-8', needle],
+      ['hex', hexOf(needle)],
+      ['base64', b64(needle)],
+      ['sha256', await sha256Hex(needle)]
+    ];
+    var hits = forms.filter(function(f){ return proofHaystack.indexOf(f[1]) !== -1; });
+    out.hidden = false;
+    if (hits.length){
+      out.className = 'hit found';
+      out.textContent = 'found as ' + hits.map(function(h){ return h[0]; }).join(', ') +
+        ' — at byte ' + proofHaystack.indexOf(hits[0][1]) + ' of ' + proofHaystack.length +
+        '. This value is one the proof discloses.';
+    } else {
+      out.className = 'hit none';
+      out.textContent = 'not present, in any of utf-8, hex, base64 or sha256, across all ' +
+        proofHaystack.length + ' bytes a verifier receives.';
     }
   }
 
@@ -1341,6 +1694,62 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     note.hidden = false;
     $('kAgain').hidden = false;
   }
+
+  function resetRunView(){
+    runClock = {};
+    credCard = { issued: false, disclosed: null };
+    proofHaystack = null;
+    $('kCard').textContent = '';
+    $('kBar').style.width = '0';
+    $('kSearch').hidden = true;
+    $('kHit').hidden = true;
+    $('kNeedle').value = '';
+  }
+
+  $('kFind').addEventListener('click', function(){ runProofSearch(); });
+  $('kNeedle').addEventListener('keydown', function(e){ if (e.key === 'Enter') runProofSearch(); });
+
+  /* ---------------- a relying app, reading the record from this tab ---------------- */
+
+  // A C-address that has never been attested, for the refusal case. Valid strkey, no record.
+  var UNKNOWN_WALLET = 'CDVJJLNFLBTX735KQVEZTX3NX5AWNY6FTJLKWOZSNR2XN2QTLI436FIO';
+
+  async function rappCheck(subject, label){
+    var out = $('rappOut');
+    out.textContent = 'Asking the gate contract…';
+    try {
+      var chain = state.chain, gate = state.gateContractId;
+      if (!chain || !gate) throw new Error('chain parameters are not loaded yet; open the record tab first');
+      var Sdk = await loadStellarSdk();
+      var server = new Sdk.rpc.Server(chain.rpcUrl);
+      var contract = new Sdk.Contract(gate);
+      var tx = new Sdk.TransactionBuilder(new Sdk.Account(chain.simulationSource, '0'), {
+        fee: Sdk.BASE_FEE, networkPassphrase: chain.networkPassphrase
+      }).addOperation(contract.call('check', new Sdk.Address(subject).toScVal(),
+        Sdk.nativeToScVal(1, { type: 'u32' }))).setTimeout(30).build();
+      var sim = await server.simulateTransaction(tx);
+      if (Sdk.rpc.Api.isSimulationError(sim)) throw new Error(sim.error);
+      var ok = Sdk.scValToNative(sim.result.retval) === true;
+      out.className = 'out';
+      out.innerHTML = ok
+        ? '<b style="color:var(--ok)">Sold.</b> check(OVER_18) returned true for ' + label +
+          ', so the shop completed the sale. It never saw a document, a name or a date of birth.'
+        : '<b style="color:var(--no)">Refused.</b> check(OVER_18) returned false for ' + label +
+          ', so the shop refused. It learns nothing else about the wallet.';
+    } catch (err){
+      out.className = 'out';
+      out.textContent = 'The read failed: ' + err.message;
+    }
+  }
+
+  $('rappBuy').addEventListener('click', function(){
+    var w = state.account && state.account.walletCAddr;
+    if (!w) return;
+    rappCheck(w, 'your wallet');
+  });
+  $('rappOther').addEventListener('click', function(){
+    rappCheck(UNKNOWN_WALLET, 'a wallet that never verified');
+  });
 
   /* ---------------- buy USDC (anchor on-ramp) ---------------- */
 
@@ -1456,28 +1865,42 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     body.innerHTML = '';
     var v = out.view;
 
+    // The record's bitmap is the ground truth for what the holder chose to disclose: a bit is set
+    // only when the proof revealed that claim AND the provider granted it. A missing bit says
+    // "the chain was never told", not "false".
+    state.chain = out.chain || null;
+    state.gateContractId = out.gateContractId || null;
+    $('rappPanel').hidden = !(out.chain && out.gateContractId && v.hasRecord);
+
+    var BITS = [
+      ['over18', 1, 'OVER_18'],
+      ['over21', 2, 'OVER_21'],
+      ['notSanctioned', 4, 'NOT_SANCTIONED'],
+      ['jurisdictionOk', 8, 'JURISDICTION_OK']
+    ];
+    var bitmap = v.record ? Number(v.record.claims) : 0;
+
     var checks = document.createElement('div');
     checks.className = 'checks';
-    // OVER_21 is never revealed by the on-ramp proof (the predicate discloses only the audit
-    // block, over18 and notSanctioned), so the chain holds no OVER_21 bit for anyone: a `false`
-    // here says "not disclosed", never "under 21". Label it as such rather than as a verdict.
-    [
-      ['check(OVER_18)', v.check.over18, null],
-      ['check(OVER_21)', v.check.over21, v.check.over21 ? null : 'not disclosed']
-    ].forEach(function(row){
+    BITS.forEach(function(b){
+      var onRecord = (bitmap & b[1]) !== 0;
       var d = document.createElement('div');
-      d.className = 'check ' + (row[1] ? 'yes' : (row[2] ? 'na' : 'no'));
+      d.className = 'check ' + (onRecord ? 'yes' : 'na');
       d.innerHTML = '<div class="lbl"></div><div class="val"></div>';
-      d.querySelector('.lbl').textContent = row[0];
-      d.querySelector('.val').textContent = row[2] ? row[2] : (row[1] ? 'true' : 'false');
+      d.querySelector('.lbl').textContent = 'check(' + b[2] + ')';
+      d.querySelector('.val').textContent = onRecord ? 'true' : 'not disclosed';
       checks.appendChild(d);
     });
     body.appendChild(checks);
+
+    var disclosedNames = BITS.filter(function(b){ return (bitmap & b[1]) !== 0; })
+                             .map(function(b){ return b[0]; });
     var why = document.createElement('p');
     why.className = 'muted small';
     why.style.marginTop = '10px';
-    why.textContent = 'The on-ramp proof reveals only over-18 and not-sanctioned; OVER_21 stays ' +
-      'hidden under the signature, so the chain never learns it — for anyone, at any age.';
+    why.textContent = 'This record carries ' + (disclosedNames.join(', ') || 'nothing') +
+      ' because that is what the proof disclosed. The attributes it did not disclose are still in ' +
+      'the credential, signed, and the chain has never seen them — for anyone, at any age.';
     body.appendChild(why);
 
     var dl = document.createElement('dl');

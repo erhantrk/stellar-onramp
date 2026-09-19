@@ -17,13 +17,13 @@ import { rpc } from '@stellar/stellar-sdk';
 import {
   CLAIM_SPECS,
   deserializeCredential,
-  gateOnrampPredicate,
+  gatePredicateFor,
   issuerIdFromPublicKey,
   prove,
   randomNonce,
   serializeProof,
 } from '@stellaronramp/identity';
-import type { SerializedCredential } from '@stellaronramp/identity';
+import type { DisclosableClaimName, SerializedCredential } from '@stellaronramp/identity';
 import type { CredentialStore } from '@stellaronramp/sdk';
 import {
   CLAIM_OVER_18,
@@ -164,12 +164,19 @@ function jsonSafe(value: unknown): unknown {
 /* The pipeline                                                                */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * What the proof discloses when the caller names nothing: the two booleans an on-ramp gate needs.
+ */
+const DEFAULT_DISCLOSURE: readonly DisclosableClaimName[] = ['over18', 'notSanctioned'];
+
 interface RunContext {
   cAddr: string;
   sessionId: string;
   sessionToken: string;
   applicantId: string;
   applicant: Applicant;
+  /** The claims the holder chose to disclose. The proof reveals these and nothing more. */
+  disclose: readonly DisclosableClaimName[];
   emit: EmitStep;
 }
 
@@ -383,30 +390,33 @@ async function runApprovedPath(deps: DemoDeps, args: RunContext): Promise<Onboar
     networkPassphrase: deps.networkPassphrase,
     ledgerExpiry: await ledgerExpiryFor(server),
   };
-  const proof = await prove(credential, gateOnrampPredicate(), binding);
+  const proof = await prove(credential, gatePredicateFor(args.disclose), binding);
 
   const withheld = CLAIM_SPECS.filter((spec) => !proof.disclosedIndexes.includes(spec.index)).map(
     (spec) => spec.name,
   );
+  const serializedProof = serializeProof(proof);
 
   await emit({
     id: 'proof',
     title: 'Derive selective-disclosure proof',
     detail:
-      'prove(credential, gateOnrampPredicate(), binding) revealed only the metadata block plus the ' +
-      'two gate booleans; every other attribute stays hidden under the same signature.',
+      `The proof reveals the metadata block plus ${args.disclose.join(', ')} — the claims you ` +
+      'chose. Every other attribute stays hidden under the same signature.',
     status: 'ok',
     data: {
       disclosed: [...proof.disclosedMessages],
       withheld,
+      chosen: [...args.disclose],
       nonce: binding.nonce,
       ledgerExpiry: binding.ledgerExpiry,
+      // What a verifier receives, so the page can search these exact bytes itself.
+      serializedProof,
     },
   });
 
-  /* --- 7. PII scan ------------------------------------------------------ */
+  /* --- 7. personal-data scan -------------------------------------------- */
 
-  const serializedProof = serializeProof(proof);
   const wire = Buffer.from(JSON.stringify(serializedProof), 'utf8');
   // Search the string leaves: a leak lands in a disclosed message or a field, never inside a
   // u32, and a short document number would otherwise collide with random hex by chance.
@@ -510,22 +520,38 @@ async function runApprovedPath(deps: DemoDeps, args: RunContext): Promise<Onboar
     contractCall(deps.gateContractId, 'check', addrScVal(cAddr), u32(CLAIM_OVER_21)),
     'check(subject, OVER_21)',
   );
-  if (checkOver18 !== claims.over18) {
-    throw new Error(
-      `on-chain check(OVER_18) = ${String(checkOver18)} disagrees with the derived claim set ` +
-        `(${String(claims.over18)})`,
-    );
+
+  // The chain records a claim only when the proof disclosed it AND the provider granted it, so
+  // the expected answer is the conjunction of the two. A mismatch means the record does not say
+  // what this run just proved, and that is worth stopping for.
+  const chose = (name: DisclosableClaimName): boolean => args.disclose.includes(name);
+  const expectOver18 = chose('over18') && claims.over18;
+  const expectOver21 = chose('over21') && claims.over21;
+  for (const [label, got, want] of [
+    ['OVER_18', checkOver18, expectOver18],
+    ['OVER_21', checkOver21, expectOver21],
+  ] as const) {
+    if (got !== want) {
+      throw new Error(
+        `on-chain check(${label}) = ${String(got)} but this run expected ${String(want)} ` +
+          `(disclosed: ${args.disclose.join(', ')})`,
+      );
+    }
   }
 
+  const undisclosed = (['over18', 'over21'] as const).filter((n) => !chose(n));
   await emit({
     id: 'check',
     title: 'Verify on chain (check)',
     detail:
-      `check(subject, OVER_18) = ${String(checkOver18)}, exactly what the claim set derived from ` +
-      `the date of birth says. check(subject, OVER_21) = ${String(checkOver21)}: the proof never ` +
-      'disclosed that attribute, so the chain never learned it.',
+      `check(subject, OVER_18) = ${String(checkOver18)} and check(subject, OVER_21) = ` +
+      `${String(checkOver21)}.` +
+      (undisclosed.length > 0
+        ? ` The proof never disclosed ${undisclosed.join(' or ')}, so the chain never learned ` +
+          'that attribute.'
+        : ' Both were disclosed, so both are on the record.'),
     status: 'ok',
-    data: { over18: checkOver18, over21: checkOver21 },
+    data: { over18: checkOver18, over21: checkOver21, disclosed: [...args.disclose] },
   });
 
   return { ok: true, subject: cAddr, txHash, claimBitmap, revocationIndex };
@@ -534,9 +560,18 @@ async function runApprovedPath(deps: DemoDeps, args: RunContext): Promise<Onboar
 /** Run the onboarding pipeline for a wallet the caller owns. */
 export async function runOnboardingPipeline(
   deps: DemoDeps,
-  args: { cAddr: string; answer: 'GREEN' | 'RED'; applicant?: Applicant; emit: EmitStep },
+  args: {
+    cAddr: string;
+    answer: 'GREEN' | 'RED';
+    applicant?: Applicant;
+    disclose?: readonly DisclosableClaimName[];
+    emit: EmitStep;
+  },
 ): Promise<OnboardingResult> {
   const applicant = args.applicant ?? DEFAULT_APPLICANT;
+  const disclose = args.disclose === undefined || args.disclose.length === 0
+    ? DEFAULT_DISCLOSURE
+    : args.disclose;
   const { sessionId, sessionToken, applicantId } = await openSessionAndDecide(deps, {
     ...args,
     applicant,
@@ -547,6 +582,7 @@ export async function runOnboardingPipeline(
     sessionToken,
     applicantId,
     applicant,
+    disclose,
     emit: args.emit,
   };
   try {

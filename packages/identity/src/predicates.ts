@@ -82,6 +82,47 @@ export function livenessOk(): Predicate {
   };
 }
 
+/**
+ * The six KYC booleans a holder can choose to disclose. The metadata block (indices 0..5) is not
+ * in this list: it is not a verdict, and {@link gatePredicateFor} always includes it.
+ */
+export const DISCLOSABLE_CLAIM_NAMES = [
+  'over18',
+  'over21',
+  'notSanctioned',
+  'notPep',
+  'jurisdictionOk',
+  'livenessOk',
+] as const;
+
+export type DisclosableClaimName = (typeof DISCLOSABLE_CLAIM_NAMES)[number];
+
+/** One boolean claim, by name: reveal its index and expect `true`. */
+export function claimPredicate(name: DisclosableClaimName): Predicate {
+  if (!DISCLOSABLE_CLAIM_NAMES.includes(name)) {
+    throw new PredicateError(`"${String(name)}" is not a disclosable claim`);
+  }
+  return {
+    label: name,
+    disclose: [CLAIM_INDEX[name]],
+    expect: { [name]: true } as Readonly<Partial<Record<ClaimName, ClaimValue>>>,
+  };
+}
+
+/**
+ * A gate predicate over a caller-chosen set of booleans: the metadata block plus exactly the
+ * claims named. The metadata block is not optional — `attest_bbs` cross-checks its issuer id,
+ * expiry and subject binding against the arguments it is given, so a proof without it cannot be
+ * attested.
+ *
+ * Duplicates collapse; an empty list is an error rather than a proof that says nothing.
+ */
+export function gatePredicateFor(names: readonly DisclosableClaimName[]): Predicate {
+  const unique = [...new Set(names)];
+  if (unique.length === 0) throw new PredicateError('gatePredicateFor requires at least one claim');
+  return allOf(credentialAudit(), ...unique.map(claimPredicate));
+}
+
 export class PredicateError extends Error {
   override readonly name = 'PredicateError';
 }

@@ -140,12 +140,15 @@ export {
 } from './status-list.js';
 
 export {
+  DISCLOSABLE_CLAIM_NAMES,
   PredicateError,
   allOf,
   checkPredicate,
+  claimPredicate,
   countryAllowed,
   credentialAudit,
   gateOnrampPredicate,
+  gatePredicateFor,
   livenessOk,
   notPep,
   notSanctioned,
@@ -154,5 +157,6 @@ export {
   prove,
   standardOnrampPredicate,
   type CountryAllowedOptions,
+  type DisclosableClaimName,
   type Predicate,
 } from './predicates.js';

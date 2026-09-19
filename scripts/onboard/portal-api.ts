@@ -43,6 +43,8 @@ import { ONRAMP_MAX_TRY, ONRAMP_MIN_TRY } from './onramp.js';
 import type { OnrampResult } from './onramp.js';
 import type { EmitStep, OnboardingResult, OnChainRecordView } from '../demo/demo-flow.js';
 import type { Applicant } from '../demo/mock-kyc.js';
+import { DISCLOSABLE_CLAIM_NAMES } from '@stellaronramp/identity';
+import type { DisclosableClaimName } from '@stellaronramp/identity';
 
 /** Cap on an API request body. The wizard's payload is a few hundred bytes; this is generous. */
 const MAX_BODY_BYTES = 256 * 1024;
@@ -67,6 +69,7 @@ export interface PortalApiDeps {
     cAddr: string;
     answer: 'GREEN' | 'RED';
     applicant: Applicant;
+    disclose: readonly DisclosableClaimName[];
     emit: EmitStep;
   }) => Promise<OnboardingResult>;
   /** Read a wallet's on-chain record and the gate's verdicts (`readOnChainRecord`). */
@@ -111,6 +114,17 @@ export interface PortalApiDeps {
 /* the wizard's applicant                                                      */
 /* -------------------------------------------------------------------------- */
 
+/** What the wizard ticks by default, and what an absent `disclose` means. */
+const DEFAULT_DISCLOSURE: readonly DisclosableClaimName[] = ['over18', 'notSanctioned'];
+
+/** The claims the contract's u32 bitmap has a bit for; the rest live only in the credential. */
+const CHAIN_BACKED_CLAIMS: readonly DisclosableClaimName[] = [
+  'over18',
+  'over21',
+  'notSanctioned',
+  'jurisdictionOk',
+];
+
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ALPHA2_RE = /^[A-Z]{2}$/;
 
@@ -141,6 +155,37 @@ function parseApplicant(raw: unknown): Applicant {
     throw new PortalAccountError(400, 'invalid_field', '"documentNumber" must be at least 6 characters');
   }
   return { givenName, familyName, dateOfBirth, documentNumber, residenceCountry: country };
+}
+
+/**
+ * The claims the holder ticked. Only these are revealed by the proof, so only these can reach the
+ * claim record. At least one must carry an on-chain bit, because `attest_bbs` refuses a record
+ * with no claims at all and the honest place to say so is here, before a wallet is deployed.
+ */
+export function parseDisclosure(raw: unknown): readonly DisclosableClaimName[] {
+  if (raw === undefined) return DEFAULT_DISCLOSURE;
+  if (!Array.isArray(raw)) {
+    throw new PortalAccountError(400, 'invalid_field', '"disclose" must be an array of claim names');
+  }
+  const names: DisclosableClaimName[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== 'string' || !DISCLOSABLE_CLAIM_NAMES.includes(entry as DisclosableClaimName)) {
+      throw new PortalAccountError(400, 'invalid_field', `"${String(entry)}" is not a disclosable claim`);
+    }
+    if (!names.includes(entry as DisclosableClaimName)) names.push(entry as DisclosableClaimName);
+  }
+  if (names.length === 0) {
+    throw new PortalAccountError(400, 'invalid_field', 'choose at least one claim to disclose');
+  }
+  if (!names.some((n) => CHAIN_BACKED_CLAIMS.includes(n))) {
+    throw new PortalAccountError(
+      400,
+      'invalid_field',
+      `the claim record carries only ${CHAIN_BACKED_CLAIMS.join(', ')}, so at least one of those ` +
+        'must be disclosed for the chain to record anything',
+    );
+  }
+  return names;
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -522,6 +567,7 @@ export async function handlePortalApi(
         // The wizard's answers are what the (mock) provider verifies for THIS run. They travel
         // into the run and nowhere else: not into the account file, not into any step's data.
         const applicant = parseApplicant(body['applicant']);
+        const disclose = parseDisclosure(body['disclose']);
         const answer: 'GREEN' | 'RED' = scenario === 'approved' ? 'GREEN' : 'RED';
         deps.accounts.update(account.id, { kyc: { ...account.kyc, status: 'pending' } });
         const accountId = account.id;
@@ -553,7 +599,7 @@ export async function handlePortalApi(
             if (ctx.finished()) {
               throw new Error('run abandoned before the pipeline started (timeout); nothing was written');
             }
-            return deps.runPipeline({ cAddr, answer, applicant, emit });
+            return deps.runPipeline({ cAddr, answer, applicant, disclose, emit });
           },
           (completion) => {
             const current = deps.accounts.get(account.id);
