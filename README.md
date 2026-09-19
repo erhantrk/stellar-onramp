@@ -5,7 +5,7 @@ credential bound to their passkey smart wallet, and the Soroban contract verifie
 selective-disclosure proof of that credential itself and caches the result. Relying contracts
 read a boolean; nobody re-collects the passport.
 
-- Live demo: LIVE_URL_PLACEHOLDER
+- Live demo: https://stellar-onramp.onrender.com (the free tier sleeps after 15 minutes idle; the first request takes about a minute)
 - Contracts on Stellar testnet: kyc-registry [`CDUYMKOSVKT3Q6GMFTA6Z2J47VK22C5KKJS4ZQJWAQ5HU4OUKGRO5MWM`](https://stellar.expert/explorer/testnet/contract/CDUYMKOSVKT3Q6GMFTA6Z2J47VK22C5KKJS4ZQJWAQ5HU4OUKGRO5MWM) · kyc-gate [`CDKDURQU57L5NVCLQVV3XJN44UECWRKTUDOMG5B7JCUAWYNYYVYWANSE`](https://stellar.expert/explorer/testnet/contract/CDKDURQU57L5NVCLQVV3XJN44UECWRKTUDOMG5B7JCUAWYNYYVYWANSE) · trex-wrap [`CBDKX6ZA6IWRTFWUVRURBEJ6KS4T3XXPJQY2SBIWOWJF5CM2PQSUPNAW`](https://stellar.expert/explorer/testnet/contract/CBDKX6ZA6IWRTFWUVRURBEJ6KS4T3XXPJQY2SBIWOWJF5CM2PQSUPNAW)
 
 ## Why
@@ -135,6 +135,27 @@ The partner portal (`/portal`) walks one person through onboarding:
 - **No personal data in any byte.** The demo scans the serialised presentation for the date of
   birth and document number in four encodings, and checks that a value the proof does disclose is
   found, so a clean scan cannot be vacuous.
+
+## How this compares
+
+Other Stellar identity work falls into two groups. Registry designs store a record that a trusted
+issuer or verifier key wrote, and relying contracts trust that key. Proof designs verify a
+cryptographic proof inside a Soroban contract. Onramp is in the second group and uses BBS+ over
+BLS12-381, which gives selective disclosure from one signature without a per-claim circuit or a
+trusted setup.
+
+| Project | What goes on chain | Who a contract must trust | Personal data |
+|---|---|---|---|
+| [Stellar Attestation Service](https://github.com/Soroban-Eas/soroban-sas) | Attestation record with an arbitrary data payload | The attester account | Whatever the attester puts in the payload |
+| [soroban-attestation-registry](https://github.com/VedantMadane/soroban-attestation-registry) | (issuer, subject, credential name) → valid / revoked | The issuer address | Addresses and credential names |
+| [web3-suite identity contracts](https://github.com/sudo-robi/web3-suite-identity-contracts) | KYC level, verifier, expiry, hash of the documents | Admin-registered verifier keys | Document hash on chain |
+| [stellar-did-credit](https://github.com/cybermax4200/stellar-did-credit) | Hash of each credential, DID document CID, credit score | Admin-curated issuer registry | Credential body on IPFS; score public |
+| [SEP-57 reference IdentityVerifier](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0057.md) | Identity registry and stored claim signatures, country per wallet | Registry of trusted claim issuers | Claim data and country stored on chain |
+| [StellarCred](https://github.com/ToluLabs/StellarCred) | "verified until T" flag after an in-contract UltraHonk proof (BN254) | Issuer secp256k1 key plus a verification key per claim type | Commitment stays off chain |
+| [stellar-zkident](https://github.com/stellar-zklab/stellar-zkident) | Groth16 public inputs after an in-contract BN254 pairing check; reputation SBTs | A Groth16 verification key per circuit | Attributes off chain; Merkle path links address to credential type |
+| Onramp | Claim record after one in-contract BBS+ verification: booleans such as `over18`, `notSanctioned`, bound to the wallet | The issuer's BBS+ public key and the pairing check | None in the credential, the proof or the chain |
+
+Sources are each project's repository or the SEP text as read on 2026-09-19.
 
 ## Run it locally
 
