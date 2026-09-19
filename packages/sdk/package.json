@@ -1,0 +1,46 @@
+{
+  "name": "@stellaronramp/sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Holder-side SDK: passkey smart-wallet creation, credential custody, and submission of a BBS+ proof to kyc-gate on Stellar.",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build && tsc -p tsconfig.test.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.2.0",
+    "@stellar/stellar-sdk": "16.2.0",
+    "@stellaronramp/gateway": "0.1.0",
+    "@stellaronramp/identity": "0.1.0",
+    "passkey-kit": "0.16.5"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erhantrk/stellar-onramp.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/erhantrk/stellar-onramp#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}

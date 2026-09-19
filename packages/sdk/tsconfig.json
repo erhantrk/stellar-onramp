@@ -1,0 +1,18 @@
+{
+  // Mirrors packages/gateway/tsconfig.json deliberately: same base, same composite layout, same
+  // dist/.tsbuildinfo. References BOTH upstream packages because src imports the package NAMES
+  // `@stellaronramp/identity` and `@stellaronramp/gateway`, whose runtime resolution goes through
+  // each package's `main` into its gitignored `dist/` — which is why `npm run build
+  // --workspaces --if-present` (identity -> gateway -> sdk, the order the root solution file
+  // encodes) is a hard precondition for this package's tests, not a nicety.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "resolveJsonModule": true
+  },
+  "include": ["src/**/*.ts"],
+  "references": [{ "path": "../identity" }, { "path": "../gateway" }]
+}

@@ -5,6 +5,7 @@
   "files": [],
   "references": [
     { "path": "./packages/identity" },
-    { "path": "./packages/gateway" }
+    { "path": "./packages/gateway" },
+    { "path": "./packages/sdk" }
   ]
 }
