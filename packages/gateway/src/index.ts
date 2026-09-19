@@ -15,6 +15,30 @@ export {
   NONCE_MAX_TTL,
 } from './chain/constants.js';
 export {
+  KYC_GATE_ERRORS,
+  KycGateContractError,
+  RETRIABLE_ERROR_CODES,
+  decodeContractErrorCode,
+  isKycGateError,
+  isRetriableContractError,
+  kycGateErrorName,
+  type KycGateErrorCode,
+  type KycGateErrorName,
+} from './chain/errors.js';
+export {
+  EpochReadError,
+  SorobanGateSimulator,
+  UNFUNDED_SIMULATION_SOURCE,
+  decodeClaimRecord,
+  readRevocationEpoch,
+  readSubjectChainState,
+  type ClaimRecord,
+  type GateSimulator,
+  type LedgerClock,
+  type SorobanGateSimulatorConfig,
+  type SubjectChainState,
+} from './chain/epoch.js';
+export {
   AGE_THRESHOLDS,
   AgeError,
   ageAtUtc,
@@ -77,3 +101,43 @@ export {
   type IssueCredentialRequest,
   type IssuedCredential,
 } from './kyc/issue.js';
+export {
+  BITSTRING_STATUS_LIST_CREDENTIAL_TYPE,
+  BITSTRING_STATUS_LIST_TYPE,
+  STATUS_LIST_CRYPTOSUITE,
+  STATUS_LIST_DOMAIN,
+  StatusCredentialError,
+  VC_V2_CONTEXT,
+  canonicalJson,
+  decodeProofValue,
+  encodeProofValue,
+  parseXsdDateTime,
+  signStatusListCredential,
+  statusListSigningInput,
+  toBitstringStatusList,
+  toXsdDateTime,
+  verifyStatusListCredential,
+  type StatusListCredentialDocument,
+  type StatusListProof,
+} from './status/credential.js';
+export {
+  DEFAULT_STATUS_LIST_VALIDITY_SECONDS,
+  assertHttpsUrl,
+  publishStatusList,
+  type PublishStatusListRequest,
+} from './status/publisher.js';
+export {
+  DEFAULT_STATUS_LIST_CACHE_TTL_SECONDS,
+  DEFAULT_STATUS_LIST_MAX_AGE_SECONDS,
+  DEFAULT_STATUS_LIST_TIMEOUT_MS,
+  FetchStatusListHttp,
+  HardenedStatusListResolver,
+  MAX_STATUS_LIST_REDIRECTS,
+  StatusListResolutionError,
+  type HardenedStatusListResolverConfig,
+  type PinnedStatusListIssuer,
+  type StatusListHttp,
+  type StatusListHttpResponse,
+  type StatusListProvenance,
+  type StatusListResolutionReason,
+} from './status/resolver.js';
