@@ -123,6 +123,11 @@ function parseApplicant(raw: unknown): Applicant {
   if (!ALPHA2_RE.test(country)) {
     throw new PortalAccountError(400, 'invalid_field', '"country" must be an ISO 3166-1 alpha-2 code');
   }
+  // The run's PII scan hunts this exact value across the presentation; a 1-5 character value
+  // would match random hex by chance and report a leak that is not one.
+  if (documentNumber.length < 6) {
+    throw new PortalAccountError(400, 'invalid_field', '"documentNumber" must be at least 6 characters');
+  }
   // The run's PII scan hunts this exact value across the presentation; a 1–5 character value
   // would match random hex by chance and report a leak that is not one.
   return { givenName, familyName, dateOfBirth, documentNumber, residenceCountry: country };

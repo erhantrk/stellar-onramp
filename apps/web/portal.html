@@ -973,6 +973,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     }
     if (kStep === 2){
       if (!kVal('kDocNumber')) return show($('kycAlert'), 'error', 'Enter the document number.');
+      if (kVal('kDocNumber').length < 6) return show($('kycAlert'), 'error', 'The document number must be at least 6 characters.');
       if (!(($('kFile').files && $('kFile').files[0]) || $('kDrop').dataset.skipped)) return show($('kycAlert'), 'error', 'Attach a document image, or skip it.');
     }
     if (kStep === 3 && !$('kCapture').dataset.pass){

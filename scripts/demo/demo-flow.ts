@@ -79,9 +79,9 @@ export interface DemoDeps {
   kyc: MockKyc;
   /** Mark a gateway session approved: the provider's verdict reaching the issuer. */
   approveSession: (sessionId: string) => void;
-  now: () => number;
   /** Holder-side custody for the credential and its subject-binding salt. */
   credentialStore?: CredentialStore;
+  now: () => number;
 }
 
 export interface OnboardingResult {
@@ -133,6 +133,15 @@ async function postJson(
   return { status: res.status, json };
 }
 
+/** Every string value anywhere inside a JSON-serialisable value, depth first. */
+function stringLeaves(value: unknown, out: string[] = []): string[] {
+  if (typeof value === 'string') out.push(value);
+  else if (Array.isArray(value)) for (const v of value) stringLeaves(v, out);
+  else if (value !== null && typeof value === 'object') {
+    for (const v of Object.values(value as Record<string, unknown>)) stringLeaves(v, out);
+  }
+  return out;
+}
 
 function jsonSafe(value: unknown): unknown {
   if (typeof value === 'bigint') return value.toString();
@@ -399,8 +408,11 @@ async function runApprovedPath(deps: DemoDeps, args: RunContext): Promise<Onboar
 
   const serializedProof = serializeProof(proof);
   const wire = Buffer.from(JSON.stringify(serializedProof), 'utf8');
-  const dobHits = findEncodings(wire, args.applicant.dateOfBirth);
-  const documentHits = findEncodings(wire, args.applicant.documentNumber);
+  // Search the string leaves: a leak lands in a disclosed message or a field, never inside a
+  // u32, and a short document number would otherwise collide with random hex by chance.
+  const textLeaves = Buffer.from(stringLeaves(serializedProof).join('\n'), 'utf8');
+  const dobHits = findEncodings(textLeaves, args.applicant.dateOfBirth);
+  const documentHits = findEncodings(textLeaves, args.applicant.documentNumber);
   if (dobHits.length !== 0 || documentHits.length !== 0) {
     throw new Error(
       `PII leaked into the presentation: date of birth as ${dobHits.join(', ') || 'none'}, ` +
@@ -408,7 +420,7 @@ async function runApprovedPath(deps: DemoDeps, args: RunContext): Promise<Onboar
     );
   }
   const control = `over18=${String(claims.over18)}`;
-  if (findEncodings(wire, control).length === 0) {
+  if (findEncodings(textLeaves, control).length === 0) {
     throw new Error(`the PII detector cannot find "${control}", which the proof discloses`);
   }
 
@@ -416,12 +428,13 @@ async function runApprovedPath(deps: DemoDeps, args: RunContext): Promise<Onboar
     id: 'piiScan',
     title: 'PII scan over the presentation',
     detail:
-      "Hunted the applicant's date of birth and document number across every byte of the " +
+      "Hunted the applicant's date of birth and document number across every string in the " +
       'serialised presentation, in four encodings (utf-8, hex, base64, sha256). Both came back ' +
       'empty, while a value the proof DOES disclose was found, so a clean scan is not vacuous.',
     status: 'ok',
     data: {
-      bytesSearched: wire.length,
+      bytesSearched: textLeaves.length,
+      bytesInPresentation: wire.length,
       dateOfBirth: '0 hits',
       documentNumber: '0 hits',
       control: 'found',
