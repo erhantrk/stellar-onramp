@@ -8,8 +8,8 @@
  *   1. The `@stellaronramp/gateway-http` server on loopback, with every seam injected: the BBS+
  *      issuer key, the status-list signer, the session store, the session-JWT issuer, and the
  *      applicant creator of the in-process mock KYC provider (`scripts/demo/mock-kyc.ts`).
- *   2. The public server: the landing page, the partner portal and its `/api/*` routes
- *      (`scripts/onboard/`), and the browser copy of the Stellar SDK.
+ *   2. The public server: the landing page, the partner portal, its `/api/*` routes
+ *      (`scripts/onboard/`), `/healthz`, and the browser copy of the Stellar SDK.
  *
  * A portal run (`scripts/demo/demo-flow.ts`) opens a real session on the gateway, records the
  * mock provider's verdict, issues a real BBS+ credential, derives a proof, and submits
@@ -19,10 +19,11 @@
  * accounts, hashed sign-in sessions, holder-side credentials, the revocation-index counter and
  * the status list. Runs and the gateway's own session store are per-process.
  *
- * Environment: `PORT`, `GATEWAY_PORT`, `STELLARONRAMP_DEPLOYER_SECRET` (else the stellar CLI
- * alias `STELLAR_ALIAS`), `PORTAL_DATA_DIR`, `PORTAL_RP_ID` (WebAuthn relying-party id for the
- * wallet), `PORTAL_ALLOW_NO_SIGNER=1` (boot without a funded signer; the on-chain half is
- * disabled).
+ * Environment: `HOST` (bind address, default 127.0.0.1), `PORT`, `GATEWAY_PORT`,
+ * `STELLARONRAMP_DEPLOYER_SECRET` (else the stellar CLI alias `STELLAR_ALIAS`),
+ * `PORTAL_DATA_DIR`, `PORTAL_PREBUILT=1` (assert `dist/` instead of building at boot),
+ * `PORTAL_SECURE_COOKIES=1`, `PORTAL_RP_ID` (WebAuthn relying-party id for the wallet),
+ * `PORTAL_ALLOW_NO_SIGNER=1` (boot without a funded signer; the on-chain half is disabled).
  */
 
 import { execFileSync } from 'node:child_process';
@@ -48,7 +49,6 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const WEB_ROOT = join(ROOT, 'apps', 'web');
 /** The UMD browser build of the pinned @stellar/stellar-sdk (global `StellarSdk`). */
-
 const STELLAR_SDK_BROWSER_BUNDLE = join(
   ROOT,
   'node_modules',
@@ -60,6 +60,8 @@ const STELLAR_SDK_BROWSER_BUNDLE = join(
 
 const DATA_DIR = resolve(process.env['PORTAL_DATA_DIR'] ?? join(ROOT, 'scripts', '.demo-data'));
 const ACCOUNTS_FILE = join(DATA_DIR, 'accounts.json');
+const PREBUILT = process.env['PORTAL_PREBUILT'] === '1';
+const SECURE_COOKIES = process.env['PORTAL_SECURE_COOKIES'] === '1';
 const ALLOW_NO_SIGNER = process.env['PORTAL_ALLOW_NO_SIGNER'] === '1';
 
 class DeployerKeyUnavailableError extends Error {
@@ -68,6 +70,8 @@ class DeployerKeyUnavailableError extends Error {
 
 const GATEWAY_PORT = Number(process.env['GATEWAY_PORT'] ?? 8791);
 const PORT = Number(process.env['PORT'] ?? 8788);
+/** The public server's bind address. The gateway always stays on loopback. */
+const HOST = process.env['HOST'] ?? '127.0.0.1';
 const DEPLOYER_ALIAS = process.env['STELLAR_ALIAS'] ?? 'stellaronramp-dev';
 
 function must(condition: unknown, message: string): asserts condition {
@@ -88,6 +92,7 @@ function selfHeal(): void {
   ];
   for (const [workspace, distPath] of builds) {
     if (existsSync(join(ROOT, distPath))) continue;
+    must(!PREBUILT, `PORTAL_PREBUILT=1 but ${distPath} is missing`);
     console.log(`[demo-web] building ${workspace} (dist missing)…`);
     execFileSync('npm', ['run', 'build', '-w', workspace], { cwd: ROOT, stdio: 'inherit' });
   }
@@ -233,6 +238,22 @@ async function handleRequest(
 ): Promise<void> {
   const pathname = decodeURIComponent(url.pathname);
 
+  if (pathname === '/healthz') {
+    const body = JSON.stringify({
+      ok: true,
+      chainEnabled: portal.chainEnabled,
+      activeRuns: portal.runs.activeCount,
+      uptimeSec: Math.floor(process.uptime()),
+    });
+    res.writeHead(200, {
+      'content-type': 'application/json; charset=utf-8',
+      'content-length': String(Buffer.byteLength(body)),
+      'cache-control': 'no-store',
+    });
+    res.end(body);
+    return;
+  }
+
   // The browser's own copy of the Stellar SDK, so the portal can read the chain directly
   // (simulateTransaction against public testnet RPC) with this server out of the path.
   if (pathname === '/vendor/stellar-sdk.min.js') {
@@ -266,6 +287,13 @@ function startPublicServer(portal: PortalApiDeps): void {
       return;
     }
     const method = (req.method ?? 'GET').toUpperCase();
+    // One line per request, path only: a query string can carry a run id, which is a bearer.
+    if (url.pathname !== '/healthz') {
+      const startedAt = Date.now();
+      res.once('finish', () => {
+        console.log(`[access] ${method} ${url.pathname} ${res.statusCode} ${Date.now() - startedAt}ms`);
+      });
+    }
     void handleRequest(req, url, method, res, portal).catch((err: unknown) => {
       console.error(`[demo-web] request ${method} ${url.pathname} failed:`, err);
       if (!res.headersSent) {
@@ -284,8 +312,8 @@ function startPublicServer(portal: PortalApiDeps): void {
     socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
   });
 
-  server.listen(PORT, '127.0.0.1', () => {
-    console.log(`[demo-web] listening on http://127.0.0.1:${PORT}/ (portal at /portal)`);
+  server.listen(PORT, HOST, () => {
+    console.log(`[demo-web] listening on http://${HOST}:${PORT}/ (portal at /portal)`);
     console.log(`[demo-web] internal gateway on http://127.0.0.1:${GATEWAY_PORT} (loopback only)`);
   });
 }
@@ -358,7 +386,7 @@ async function main(): Promise<void> {
       '  * The BBS+ issuer secret derives from a fixed public seed. Testnet only.\n' +
       '  * Each portal account gets a passkey smart wallet deployed on testnet through the Channels\n' +
       '    relayer; the software authenticator key is discarded after deployment.\n' +
-      '  * Both sockets bind 127.0.0.1. Attestations are paid by the deployer account.',
+      `  * The public server binds ${HOST}; the gateway binds 127.0.0.1. Attestations are paid by the deployer.`,
   );
 
   const gw = buildServer({
@@ -439,7 +467,7 @@ async function main(): Promise<void> {
   console.log(
     `[demo-web] partner portal: ${accounts.size} account(s) in ${DATA_DIR}, ${sessions.size} live session(s), ` +
       `${credentials.size} stored credential(s), next revocation index ${revocationIndexes.next}\n` +
-      `[demo-web] open http://127.0.0.1:${PORT}/portal` +
+      `[demo-web] open http://${HOST === '0.0.0.0' ? '<host>' : HOST}:${PORT}/portal` +
       (chainEnabled ? '' : '  (chain half disabled)'),
   );
 
@@ -451,6 +479,7 @@ async function main(): Promise<void> {
     readRecord: (cAddr) => readOnChainRecord(deps, cAddr),
     gateContractId,
     chain: { rpcUrl, networkPassphrase, simulationSource: testnet.deployer },
+    secureCookies: SECURE_COOKIES,
     createWallet: (args) => wallets.create(args),
     now: () => Math.floor(Date.now() / 1000),
     chainEnabled,

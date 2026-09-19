@@ -595,7 +595,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
   var EXPLORER = 'https://stellar.expert/explorer/testnet';
 
   var $ = function(id){ return document.getElementById(id); };
-  var state = { account: null, chainEnabled: true };
+  var state = { account: null, chainEnabled: true, activeRunId: null };
 
   /* ---------------- helpers ---------------- */
 
@@ -667,6 +667,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
 
   function applyAccount(payload){
     state.account = payload.account;
+    state.activeRunId = payload.activeRunId || null;
     if (payload.chainEnabled !== undefined) applyChainFlag(payload.chainEnabled);
   }
 
@@ -683,7 +684,25 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     $('auth').hidden = true;
     $('app').hidden = false;
     renderAccount();
+    // A run still open on the server (page reloaded mid-run, or a second tab): reattach to its
+    // stream instead of showing a wizard that would answer 409.
+    if (state.activeRunId){
+      selectTab('verify');
+      attachRun(state.activeRunId);
+      return;
+    }
     selectTab(state.account && state.account.kyc.status === 'none' ? 'verify' : 'overview');
+  }
+
+  function attachRun(runId){
+    releaseCamera();
+    $('kycWizard').hidden = true;
+    $('kycProgress').hidden = false;
+    $('kResult').hidden = true;
+    $('kAgain').hidden = true;
+    $('kStream').textContent = '';
+    $('kRunState').innerHTML = '<span class="spinner"></span> Running verification…';
+    streamRun(runId);
   }
 
   function selectTab(name){
@@ -804,8 +823,6 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     showAuth('signin');
   });
 
-
-
   /* ---------------- read the chain from the browser ----------------
    * Loads the pinned @stellar/stellar-sdk browser bundle (served from this server's node_modules,
    * but it is the SDK talking to the PUBLIC RPC — this server never sees the question or the
@@ -869,6 +886,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     box.appendChild(note);
   }
 
+  /* ---------------- account rendering ---------------- */
 
   function renderAccount(){
     var a = state.account;
@@ -915,7 +933,9 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
       return;
     }
     if (status === 'none') action.innerHTML = 'Start <b>Identity verification</b> to mint your wallet and prove your claims on-chain.';
-    else if (status === 'pending') action.innerHTML = 'Verification is <b>in progress</b>. Open the <b>Verification</b> tab.';
+    else if (status === 'pending') action.innerHTML = state.activeRunId
+      ? 'Verification is <b>in progress</b>. Open the <b>Verification</b> tab to watch it.'
+      : 'Verification was <b>started but not finished</b>. Open the <b>Verification</b> tab to run it again.';
     else if (status === 'approved') { action.className = 'note'; action.innerHTML = 'Verified. Your claims are recorded on-chain — see the <b>On-chain record</b> tab.'; }
     else if (status === 'rejected') { action.className = 'note warn'; action.innerHTML = 'The provider <b>refused</b> this verification, so nothing was issued or written. You can try again from the <b>Verification</b> tab.'; }
   }
@@ -1173,6 +1193,10 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
       $('kStream').textContent = '';
       streamRun(out.runId);
     } catch (err){
+      if (err.code === 'run_in_progress' && err.runId){
+        attachRun(err.runId);
+        return;
+      }
       show($('kycAlert'), 'error', err.message);
       $('kSubmit').disabled = false;
     }
@@ -1188,6 +1212,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
   function streamRun(runId){
     var es = new EventSource('/api/kyc/stream?runId=' + encodeURIComponent(runId));
     var finished = false;
+    var drops = 0;
 
     es.onmessage = function(ev){
       var step;
@@ -1195,19 +1220,39 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
       upsertStep(step);
     };
 
+    function stop(headline, message){
+      finished = true;
+      es.close();
+      $('kRunState').innerHTML = headline;
+      var note = $('kResult');
+      note.className = 'note warn';
+      note.textContent = message;
+      note.hidden = false;
+      $('kAgain').hidden = false;
+    }
+
     es.addEventListener('done', function(){ if (!finished){ finished = true; es.close(); onRunDone(); } });
     es.addEventListener('error', function(ev){
       if (finished) return;
-      finished = true;
-      es.close();
-      var msg = 'The run failed.';
-      try { var d = JSON.parse(ev.data); if (d && d.message) msg = d.message; } catch (e) {}
-      $('kRunState').innerHTML = 'Run stopped.';
-      var note = $('kResult');
-      note.className = 'note warn';
-      note.textContent = msg;
-      note.hidden = false;
-      $('kAgain').hidden = false;
+      // Two very different things arrive here. A payload means the SERVER ended the run with an
+      // error frame — terminal. No payload means the transport dropped: the server replays the
+      // whole run on reconnect, so the browser's automatic retry is lossless and we only give up
+      // when the server refused the stream outright (readyState CLOSED, e.g. after the server restarted).
+      if (typeof ev.data === 'string' && ev.data.length){
+        var msg = 'The run failed.';
+        try { var d = JSON.parse(ev.data); if (d && d.message) msg = d.message; } catch (e) {}
+        stop('Run stopped.', msg);
+        return;
+      }
+      if (es.readyState === EventSource.CLOSED){
+        stop('Connection lost.', 'The connection to the server was lost. The run may still be completing — refresh this page to check your status.');
+        return;
+      }
+      drops += 1;
+      $('kRunState').innerHTML = '<span class="spinner"></span> Reconnecting…' + (drops > 1 ? ' (' + drops + ')' : '');
+      if (drops >= 4){
+        stop('Connection unstable.', 'The stream keeps dropping. The run may still be completing on the server — refresh this page to check your status.');
+      }
     });
   }
 

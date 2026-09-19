@@ -32,6 +32,18 @@ export type RunEvent =
 export interface RunCompletion {
   readonly result?: OnboardingResult;
   readonly error?: string;
+  /**
+   * The runner settled AFTER the run was already abandoned by the timeout. Nothing was published
+   * to subscribers (the stream is long closed), but the outcome is real — a record may have
+   * landed on chain — so the completion callback still gets it and may persist it.
+   */
+  readonly late?: boolean;
+}
+
+/** What a runner may ask mid-flight. */
+export interface RunContext {
+  /** True once the run has been abandoned (timeout): persist nothing that would race a retry. */
+  readonly finished: () => boolean;
 }
 
 interface RunState {
@@ -42,9 +54,30 @@ interface RunState {
   readonly listeners: Set<(event: RunEvent) => void>;
 }
 
-/** In-memory registry of in-flight and just-finished runs. */
+export interface RunRegistryOptions {
+  /** A run still open after this long is abandoned with an `error` event. Default 5 min. */
+  readonly timeoutMs?: number;
+  /** How long a finished run stays readable (for late reattaches). Default 1 h. */
+  readonly retainMs?: number;
+}
+
+/**
+ * In-memory registry of in-flight and just-finished runs.
+ *
+ * A run is abandoned with an `error` event after `timeoutMs` (the runner is NOT cancelled — see
+ * `finish` — but its account can start again), and a finished run stays readable for `retainMs`
+ * so a page that reconnects still gets the tail, then is evicted. This backs a long-lived hosted
+ * process, so both bounds matter.
+ */
 export class InMemoryRunRegistry {
   readonly #runs = new Map<string, RunState>();
+  readonly #timeoutMs: number;
+  readonly #retainMs: number;
+
+  constructor(options: RunRegistryOptions = {}) {
+    this.#timeoutMs = options.timeoutMs ?? 5 * 60_000;
+    this.#retainMs = options.retainMs ?? 60 * 60_000;
+  }
 
   /**
    * Register a run and start it immediately (without awaiting). `runner` is the pipeline; it is
@@ -53,7 +86,7 @@ export class InMemoryRunRegistry {
    */
   start(
     accountId: string,
-    runner: (emit: EmitStep) => Promise<OnboardingResult>,
+    runner: (emit: EmitStep, ctx: RunContext) => Promise<OnboardingResult>,
     onComplete?: (completion: RunCompletion) => void,
   ): string {
     const id = randomUUID();
@@ -66,18 +99,42 @@ export class InMemoryRunRegistry {
     };
     this.#runs.set(id, state);
 
+    // Exactly ONE terminal outcome per run, whichever comes first: the runner settling or the
+    // timeout. A runner that settles after the timeout is dropped on the floor (its account
+    // state was already left `pending` by the timeout's completion); a hung RPC or relayer call
+    // can therefore never pin `activeRunId` forever.
+    let completed = false;
+    const finish = (event: RunEvent, completion: RunCompletion): void => {
+      if (completed) {
+        // The runner settling after the timeout: not published, but not dropped either.
+        if (event.type !== 'error' || completion.result !== undefined) onComplete?.({ ...completion, late: true });
+        return;
+      }
+      completed = true;
+      clearTimeout(timer);
+      this.#publish(state, event);
+      onComplete?.(completion);
+      const evict = setTimeout(() => this.#runs.delete(id), this.#retainMs);
+      evict.unref?.();
+    };
+    const timer = setTimeout(() => {
+      const message =
+        `the run exceeded ${Math.round(this.#timeoutMs / 60_000)} minutes and was abandoned; ` +
+        'it may still finish on chain — refresh the page to check your status';
+      finish({ type: 'error', message }, { error: message });
+    }, this.#timeoutMs);
+    timer.unref?.();
+
     void (async () => {
       const emit: EmitStep = (step) => {
-        this.#publish(state, { type: 'step', step });
+        if (!completed) this.#publish(state, { type: 'step', step });
       };
       try {
-        const result = await runner(emit);
-        this.#publish(state, { type: 'done', result });
-        onComplete?.({ result });
+        const result = await runner(emit, { finished: () => completed });
+        finish({ type: 'done', result }, { result });
       } catch (err) {
         const message = String((err as Error)?.message ?? err);
-        this.#publish(state, { type: 'error', message });
-        onComplete?.({ error: message });
+        finish({ type: 'error', message }, { error: message });
       }
     })();
 
@@ -130,12 +187,23 @@ export class InMemoryRunRegistry {
     return state === undefined ? undefined : { accountId: state.accountId, done: state.done };
   }
 
+  /** The id of the account's open run, if any — so a page can reattach instead of erroring. */
+  activeRunId(accountId: string): string | undefined {
+    for (const state of this.#runs.values()) {
+      if (state.accountId === accountId && !state.done) return state.id;
+    }
+    return undefined;
+  }
+
   /** True iff this account has a run that has not yet reached a terminal event. */
   hasActiveRun(accountId: string): boolean {
-    for (const state of this.#runs.values()) {
-      if (state.accountId === accountId && !state.done) return true;
-    }
-    return false;
+    return this.activeRunId(accountId) !== undefined;
+  }
+
+  get activeCount(): number {
+    let n = 0;
+    for (const state of this.#runs.values()) if (!state.done) n += 1;
+    return n;
   }
 
   get size(): number {

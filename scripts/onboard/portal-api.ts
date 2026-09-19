@@ -67,6 +67,10 @@ export interface PortalApiDeps {
   readonly gateContractId: string;
   /** What the browser needs to simulate the gate's reads itself, bypassing this server. */
   readonly chain: { rpcUrl: string; networkPassphrase: string; simulationSource: string };
+  /** Mark session cookies `Secure` (a hosted https deployment). Auto-detected from x-forwarded-proto too. */
+  readonly secureCookies?: boolean;
+  /** Cap on simultaneous KYC runs across ALL accounts — each one spends the deployer's testnet balance. Default 3. */
+  readonly maxActiveRuns?: number;
   /**
    * Deploy the account's passkey smart wallet on testnet (scripts/onboard/wallet.ts). Called at
    * most ONCE per account, from inside the first KYC run, so the deployment streams as a step.
@@ -123,13 +127,11 @@ function parseApplicant(raw: unknown): Applicant {
   if (!ALPHA2_RE.test(country)) {
     throw new PortalAccountError(400, 'invalid_field', '"country" must be an ISO 3166-1 alpha-2 code');
   }
-  // The run's PII scan hunts this exact value across the presentation; a 1-5 character value
+  // The run's PII scan hunts this exact value across the presentation; a 1–5 character value
   // would match random hex by chance and report a leak that is not one.
   if (documentNumber.length < 6) {
     throw new PortalAccountError(400, 'invalid_field', '"documentNumber" must be at least 6 characters');
   }
-  // The run's PII scan hunts this exact value across the presentation; a 1–5 character value
-  // would match random hex by chance and report a leak that is not one.
   return { givenName, familyName, dateOfBirth, documentNumber, residenceCountry: country };
 }
 
@@ -223,6 +225,64 @@ function requireAccount(deps: PortalApiDeps, req: IncomingMessage): AccountRecor
 }
 
 /**
+ * The caller's address for rate limiting: the FIRST x-forwarded-for hop when a proxy sits in
+ * front (Railway, any load balancer), else the socket. A client can forge the header only when
+ * nothing is in front of the process, in which case the socket address is what it forges from.
+ */
+function clientIp(req: IncomingMessage): string {
+  const fwd = req.headers['x-forwarded-for'];
+  const first = (Array.isArray(fwd) ? fwd[0] : fwd)?.split(',')[0]?.trim();
+  return first !== undefined && first.length > 0 ? first : (req.socket.remoteAddress ?? 'unknown');
+}
+
+/**
+ * A fixed-window per-key counter. Not a product rate limiter — a stop against the obvious abuse
+ * of a public demo: scripted registrations (each later spends testnet funds) and password
+ * guessing (each attempt is a synchronous scrypt on the event loop). Memory is bounded by
+ * pruning expired windows on every check.
+ */
+class FixedWindowLimiter {
+  readonly #hits = new Map<string, { count: number; resetAt: number }>();
+
+  constructor(
+    private readonly limit: number,
+    private readonly windowMs: number,
+  ) {}
+
+  /** True when the key is over its limit for the current window (and counts the attempt). */
+  exceeded(key: string, now = Date.now()): boolean {
+    if (this.#hits.size > 10_000) {
+      for (const [k, v] of this.#hits) if (v.resetAt <= now) this.#hits.delete(k);
+    }
+    const cur = this.#hits.get(key);
+    if (cur === undefined || cur.resetAt <= now) {
+      this.#hits.set(key, { count: 1, resetAt: now + this.windowMs });
+      return false;
+    }
+    cur.count += 1;
+    return cur.count > this.limit;
+  }
+}
+
+const registerLimiter = new FixedWindowLimiter(10, 10 * 60_000); // 10 sign-ups / 10 min / IP
+const loginLimiter = new FixedWindowLimiter(20, 10 * 60_000); // 20 attempts / 10 min / IP
+const submitLimiter = new FixedWindowLimiter(6, 10 * 60_000); // 6 runs / 10 min / IP
+
+function assertNotRateLimited(limiter: FixedWindowLimiter, req: IncomingMessage, what: string): void {
+  if (limiter.exceeded(clientIp(req))) {
+    throw new PortalAccountError(429, 'rate_limited', `too many ${what} from this address — try again in a few minutes`);
+  }
+}
+
+/** Whether to flag the session cookie `Secure`: configured, or the proxy says the hop was https. */
+function secureCookies(deps: PortalApiDeps, req: IncomingMessage): boolean {
+  if (deps.secureCookies) return true;
+  const proto = req.headers['x-forwarded-proto'];
+  const first = (Array.isArray(proto) ? proto[0] : proto)?.split(',')[0]?.trim();
+  return first === 'https';
+}
+
+/**
  * The body of every account-bearing response. The chain flag rides along rather than being
  * inferred, so the page can state plainly that the on-chain half is off BEFORE the user fills in
  * a wizard that cannot complete.
@@ -231,6 +291,7 @@ function accountPayload(deps: PortalApiDeps, account: AccountRecord): Record<str
   return {
     account: toPublicAccount(account),
     chainEnabled: deps.chainEnabled,
+    activeRunId: deps.runs.activeRunId(account.id) ?? null,
   };
 }
 
@@ -276,8 +337,14 @@ function streamRun(
     }
   };
 
+  // A comment frame every 15 s keeps proxies and idle timeouts from cutting a 40–90 s run.
+  const heartbeat = setInterval(() => write(': ping\n\n'), 15_000);
+  heartbeat.unref?.();
+  res.on('close', () => clearInterval(heartbeat));
+
   let unsubscribe: (() => void) | undefined;
   const end = (): void => {
+    clearInterval(heartbeat);
     if (!closed && !res.writableEnded) res.end();
   };
 
@@ -325,6 +392,7 @@ export async function handlePortalApi(
       /* ------------------------------ accounts ----------------------------- */
 
       case 'POST /api/register': {
+        assertNotRateLimited(registerLimiter, req, 'sign-ups');
         const body = await readJsonBody(req);
         const rawEmail = requireStringField(body, 'email');
         const password = requireStringField(body, 'password');
@@ -336,13 +404,14 @@ export async function handlePortalApi(
         // after signing up is a worse flow, and the cookie is the same one login would set.
         res.setHeader(
           'set-cookie',
-          portalSessionCookie(deps.sessions.create(account.id)),
+          portalSessionCookie(deps.sessions.create(account.id), { secure: secureCookies(deps, req) }),
         );
         sendJson(res, 201, accountPayload(deps, account));
         return;
       }
 
       case 'POST /api/login': {
+        assertNotRateLimited(loginLimiter, req, 'sign-in attempts');
         const body = await readJsonBody(req);
         const email = requireStringField(body, 'email');
         let account: AccountRecord;
@@ -361,7 +430,7 @@ export async function handlePortalApi(
         }
         res.setHeader(
           'set-cookie',
-          portalSessionCookie(deps.sessions.create(account.id)),
+          portalSessionCookie(deps.sessions.create(account.id), { secure: secureCookies(deps, req) }),
         );
         sendJson(res, 200, accountPayload(deps, account));
         return;
@@ -369,7 +438,7 @@ export async function handlePortalApi(
 
       case 'POST /api/logout': {
         for (const token of readCookies(req.headers.cookie, PORTAL_COOKIE_NAME)) deps.sessions.destroy(token);
-        res.setHeader('set-cookie', clearedPortalSessionCookie());
+        res.setHeader('set-cookie', clearedPortalSessionCookie({ secure: secureCookies(deps, req) }));
         sendJson(res, 200, { ok: true });
         return;
       }
@@ -418,8 +487,20 @@ export async function handlePortalApi(
               'credential cannot be attested',
           );
         }
-        if (deps.runs.hasActiveRun(account.id)) {
-          throw new PortalAccountError(409, 'run_in_progress', 'a KYC run is already in progress');
+        assertNotRateLimited(submitLimiter, req, 'verification runs');
+        const activeRun = deps.runs.activeRunId(account.id);
+        if (activeRun !== undefined) {
+          // Carries the run id so the page can reattach to the stream instead of showing an error.
+          console.warn('[portal-api] 409 run_in_progress');
+          sendJson(res, 409, {
+            error: { code: 'run_in_progress', message: 'a KYC run is already in progress', runId: activeRun },
+          });
+          return;
+        }
+        // Every run deploys a wallet and pays an attestation from the deployer key; a public demo
+        // must not let N strangers run N of them at once.
+        if (deps.runs.activeCount >= (deps.maxActiveRuns ?? 3)) {
+          throw new PortalAccountError(503, 'busy', 'the demo is running its maximum number of verifications right now — try again in a minute');
         }
         // The wizard's answers are what the (mock) provider verifies for THIS run. They travel
         // into the run and nowhere else: not into the account file, not into any step's data.
@@ -431,18 +512,29 @@ export async function handlePortalApi(
 
         const runId = deps.runs.start(
           account.id,
-          async (emit) => {
+          async (emit, ctx) => {
             // ONE wallet per account, deployed on first use and then fixed: it is the subject
             // every credential and every on-chain record is bound to.
             let cAddr = deps.accounts.get(accountId)?.walletCAddr;
             if (cAddr === undefined) {
               const wallet = await deps.createWallet({ userName, emit });
-              deps.accounts.update(accountId, {
-                walletCAddr: wallet.address,
-                walletKeyId: wallet.keyId,
-                walletDeployTxHash: wallet.deployTxHash,
-              });
-              cAddr = wallet.address;
+              // Re-read AFTER the deploy: if this run was abandoned by the timeout and a retry
+              // already deployed and attested against another wallet, that one is the subject
+              // with the record — never overwrite it with a wallet nothing points at.
+              const fresh = deps.accounts.get(accountId)?.walletCAddr;
+              if (fresh !== undefined) {
+                cAddr = fresh;
+              } else {
+                deps.accounts.update(accountId, {
+                  walletCAddr: wallet.address,
+                  walletKeyId: wallet.keyId,
+                  walletDeployTxHash: wallet.deployTxHash,
+                });
+                cAddr = wallet.address;
+              }
+            }
+            if (ctx.finished()) {
+              throw new Error('run abandoned before the pipeline started (timeout); nothing was written');
             }
             return deps.runPipeline({ cAddr, answer, applicant, emit });
           },
@@ -450,8 +542,11 @@ export async function handlePortalApi(
             const current = deps.accounts.get(account.id);
             if (current === undefined) return;
             // An UNEXPECTED fault is not a rejection: leave the account pending so the wizard can
-            // be retried once the cause is fixed, rather than marking a person as refused.
+            // be retried once the cause is fixed, rather than marking a person as refused. A LATE
+            // result (runner settled after the timeout) is still a real outcome and is persisted,
+            // unless a retry has already verified this account in the meantime.
             if (completion.error !== undefined || completion.result === undefined) return;
+            if (completion.late === true && current.kyc.status === 'approved') return;
             const result = completion.result;
             const verified = result.txHash !== undefined;
             deps.accounts.update(account.id, {
