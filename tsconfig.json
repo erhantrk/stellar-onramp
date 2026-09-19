@@ -1,0 +1,9 @@
+{
+  // Solution file. `tsc --build` from the repo root needs a tsconfig.json to exist here or it
+  // fails with TS5083 before typechecking anything; this is that file. It compiles nothing
+  // itself — it only names the projects, in dependency order.
+  "files": [],
+  "references": [
+    { "path": "./packages/identity" }
+  ]
+}

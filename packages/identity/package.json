@@ -1,0 +1,43 @@
+{
+  "name": "@stellaronramp/identity",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "BBS+ credentials for Stellar: the schema, the presentation binding and the BBS+ generators.",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@digitalbazaar/bbs-signatures": "3.1.0",
+    "@noble/curves": "^2.2.0",
+    "@noble/hashes": "^2.2.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erhantrk/stellar-onramp.git",
+    "directory": "packages/identity"
+  },
+  "homepage": "https://github.com/erhantrk/stellar-onramp#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}
