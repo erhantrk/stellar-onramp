@@ -1,0 +1,1242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Partner Portal — StellarOnramp</title>
+<meta name="description" content="Partner onboarding portal: register, sign in, and complete KYC verification. The verification result is a BBS+ selective-disclosure proof verified on-chain by kyc-gate.attest_bbs on Stellar testnet.">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="%23c8102e"/><path d="M8 22V10h4.2l3.8 6.4L19.8 10H24v12h-3.6v-6.6L17 22h-2l-3.4-6.6V22H8z" fill="%23fff"/></svg>'>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f5f7;
+  --surface:#ffffff;
+  --ink:#12161c;
+  --muted:#6b7280;
+  --dim:#9aa1ab;
+  --line:#e3e6ea;
+  --line-2:#d3d8de;
+
+  --brand:#c8102e;
+  --brand-deep:#8f0c21;
+  --gold:#f0b429;
+
+  --ok:#0e7a4a;
+  --ok-bg:#e8f5ee;
+  --ok-line:#b7e0c8;
+  --no:#b42318;
+  --no-bg:#fdecea;
+  --no-line:#f3c2bd;
+  --wait:#8a5a00;
+  --wait-bg:#fdf3e0;
+  --wait-line:#f0d9ab;
+
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,'SF Mono',monospace;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 10px 28px -12px rgba(16,24,40,.16);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:var(--sans);font-size:15px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.015em;color:var(--ink)}
+p{margin:0}
+a{color:var(--brand);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font-family:inherit}
+[hidden]{display:none !important}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+/* buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:11px 18px;border-radius:8px;border:1px solid transparent;cursor:pointer;
+  font-size:14px;font-weight:600;line-height:1;transition:background .16s,border-color .16s,color .16s,opacity .16s;
+}
+.btn-primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn-primary:hover{background:var(--brand-deep);border-color:var(--brand-deep)}
+.btn-ghost{background:#fff;color:var(--ink);border-color:var(--line-2)}
+.btn-ghost:hover{border-color:var(--dim)}
+.btn-quiet{background:transparent;color:var(--muted);border-color:transparent;padding:8px 10px}
+.btn-quiet:hover{color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-block{width:100%}
+
+/* fields */
+.field{display:block;margin-bottom:14px}
+.field > span{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+.field input,.field select{
+  width:100%;padding:10px 12px;border:1px solid var(--line-2);border-radius:8px;
+  background:#fff;color:var(--ink);font:inherit;font-size:14px;
+}
+.field input:focus,.field select:focus{outline:2px solid rgba(200,16,46,.28);outline-offset:0;border-color:var(--brand)}
+.field .hint{display:block;font-size:12px;color:var(--dim);margin-top:5px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+@media (max-width:560px){.grid-2{grid-template-columns:1fr}}
+
+/* ---------- AUTH ---------- */
+.auth{min-height:100vh;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
+@media (max-width:900px){.auth{grid-template-columns:1fr}}
+.auth-brand{
+  background:linear-gradient(160deg,#171b22 0%,#0d1014 100%);
+  color:#e9ebee;padding:clamp(28px,5vw,56px);display:flex;flex-direction:column;
+}
+.brandrow{display:flex;align-items:center;gap:11px;margin-bottom:auto}
+.brandmark{
+  width:34px;height:34px;border-radius:8px;background:var(--brand);color:#fff;
+  display:grid;place-items:center;font-weight:700;font-size:17px;
+}
+.brandrow b{font-size:16px;font-weight:600;color:#fff}
+.brandrow em{font-style:normal;color:#8f979f;font-size:13px;margin-left:2px}
+.auth-brand h1{
+  color:#fff;font-size:clamp(28px,3.6vw,44px);line-height:1.1;letter-spacing:-.03em;
+  max-width:16ch;margin:clamp(40px,8vh,90px) 0 16px;
+}
+.auth-brand > p{color:#a9b0b8;max-width:44ch}
+.feat{list-style:none;margin:28px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.feat li{
+  font-size:12px;font-weight:600;letter-spacing:.02em;color:#cfd4da;
+  border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:6px 12px;
+}
+.sandbox-note{
+  margin-top:auto;padding-top:28px;font-size:12px;color:#8f979f;
+  border-top:1px solid rgba(255,255,255,.1);
+}
+.auth-panel{display:grid;place-items:center;padding:clamp(24px,5vw,56px)}
+.card{
+  width:100%;max-width:430px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:clamp(22px,4vw,34px);
+}
+.card h2{font-size:22px}
+.card .sub{color:var(--muted);font-size:14px;margin-top:6px}
+.card form{margin-top:22px}
+.alt{margin-top:18px;font-size:14px;color:var(--muted);text-align:center}
+
+.steps{display:flex;align-items:center;gap:10px;margin-top:18px}
+.dots{display:flex;gap:6px}
+.dots span{width:26px;height:4px;border-radius:2px;background:var(--line-2)}
+.dots span.on{background:var(--brand)}
+#regLabel{font-size:12px;font-weight:600;color:var(--muted);margin-left:auto;letter-spacing:.02em}
+.wactions{display:flex;gap:10px;margin-top:20px}
+.wactions .btn{flex:1}
+
+.alert{
+  border-radius:8px;padding:10px 12px;font-size:13.5px;margin-bottom:14px;
+  border:1px solid var(--no-line);background:var(--no-bg);color:var(--no);
+}
+.alert[data-kind="info"]{border-color:var(--line-2);background:#f7f8fa;color:var(--muted)}
+
+/* ---------- APP ---------- */
+.topbar{
+  background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;
+}
+.topbar .inner{
+  max-width:1180px;margin:0 auto;padding:0 clamp(16px,3vw,28px);height:62px;
+  display:flex;align-items:center;gap:18px;
+}
+.topbar .brandrow{margin:0}
+.topbar .brandrow b{color:var(--ink)}
+.topbar .brandrow em{color:var(--dim)}
+.topnav{display:flex;gap:6px;margin-left:8px}
+.topnav a{font-size:13.5px;font-weight:500;color:var(--muted);padding:7px 10px;border-radius:7px}
+.topnav a:hover{color:var(--ink);background:#f3f4f6;text-decoration:none}
+.whoami{margin-left:auto;display:flex;align-items:center;gap:12px}
+.whoami .email{font-size:13.5px;color:var(--muted)}
+@media (max-width:760px){.topnav{display:none}.whoami .email{display:none}}
+
+.layout{max-width:1180px;margin:0 auto;padding:clamp(20px,3vw,32px) clamp(16px,3vw,28px);display:grid;grid-template-columns:224px minmax(0,1fr);gap:28px}
+@media (max-width:900px){.layout{grid-template-columns:1fr}}
+.side{display:flex;flex-direction:column;gap:4px;align-self:start;position:sticky;top:90px}
+@media (max-width:900px){.side{position:static;flex-direction:row;flex-wrap:wrap}}
+.side button{
+  text-align:left;background:transparent;border:1px solid transparent;border-radius:8px;
+  padding:9px 12px;font-size:14px;color:var(--muted);cursor:pointer;font-weight:500;
+}
+.side button:hover{color:var(--ink);background:#eef0f3}
+.side button.on{background:#fff;border-color:var(--line);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.panel + .panel{margin-top:20px}
+.panel .head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.panel .head h3{font-size:16px}
+.panel .head .spacer{margin-left:auto}
+.panel .body{padding:22px}
+.panel .body.tight{padding:0}
+
+.status-pill{
+  display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;
+  padding:5px 11px;border-radius:999px;border:1px solid var(--line-2);background:#f7f8fa;color:var(--muted);
+}
+.status-pill::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor}
+.status-pill[data-s="approved"]{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+.status-pill[data-s="rejected"]{background:var(--no-bg);border-color:var(--no-line);color:var(--no)}
+.status-pill[data-s="pending"]{background:var(--wait-bg);border-color:var(--wait-line);color:var(--wait)}
+
+.kv{display:grid;grid-template-columns:190px minmax(0,1fr);gap:10px 18px;font-size:14px}
+@media (max-width:600px){.kv{grid-template-columns:1fr;gap:3px 0}.kv dt{margin-top:10px}}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-family:var(--mono);font-size:13px;word-break:break-all}
+
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.check{border:1px solid var(--line);border-radius:9px;padding:13px 14px;background:#fff}
+.check .lbl{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.01em}
+.check .val{font-size:17px;font-weight:700;margin-top:5px}
+.check.yes{border-color:var(--ok-line);background:var(--ok-bg)}
+.check.yes .val{color:var(--ok)}
+.check.no .val{color:var(--muted)}
+
+.note{
+  border-left:3px solid var(--line-2);background:#f8f9fa;padding:11px 14px;border-radius:0 8px 8px 0;
+  font-size:13.5px;color:var(--muted);margin-top:16px;
+}
+.note b{color:var(--ink);font-weight:600}
+.note.warn{border-left-color:var(--gold);background:#fdf9ee;color:#6b5518}
+
+/* KYC wizard */
+.ksteps{display:flex;gap:0;margin:0 0 22px;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.ksteps div{
+  flex:1;padding:10px 12px;font-size:12.5px;font-weight:600;color:var(--muted);
+  background:#f8f9fa;border-right:1px solid var(--line);text-align:center;
+}
+.ksteps div:last-child{border-right:0}
+.ksteps div.on{background:#fff;color:var(--brand)}
+.ksteps div.done{color:var(--ok)}
+@media (max-width:640px){.ksteps div{font-size:11px;padding:8px 4px}}
+
+.drop{
+  border:1.5px dashed var(--line-2);border-radius:9px;padding:22px;text-align:center;background:#fafbfc;
+}
+.drop.has{border-color:var(--ok-line);background:var(--ok-bg);border-style:solid}
+.drop .big{font-weight:600;font-size:14px}
+.drop .sub{font-size:12.5px;color:var(--muted);margin-top:4px}
+
+.liveness{display:flex;align-items:flex-start;gap:18px;flex-wrap:wrap}
+.cam{
+  width:150px;height:150px;border-radius:12px;border:2px solid var(--line-2);background:#f4f5f7;
+  display:grid;place-items:center;overflow:hidden;position:relative;flex:none;
+  transition:border-color .3s,background .3s;
+}
+/* `[hidden]` is `display:none !important` globally, so it still wins over these rules. */
+.cam video,.cam img{width:100%;height:100%;object-fit:cover;display:block}
+.cam .camlabel{font-size:11px;letter-spacing:.08em;color:var(--muted);font-weight:600;text-align:center}
+.cam.live{border-color:var(--brand);animation:pulse 1.1s ease-in-out infinite}
+.cam.pass{border-color:var(--ok);background:var(--ok-bg);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+.radios{display:grid;gap:10px;margin-top:6px}
+.radio{
+  display:flex;gap:11px;align-items:flex-start;border:1px solid var(--line);border-radius:9px;
+  padding:12px 14px;cursor:pointer;background:#fff;
+}
+.radio:hover{border-color:var(--line-2)}
+.radio input{margin-top:3px}
+.radio b{display:block;font-size:14px}
+.radio span{font-size:12.5px;color:var(--muted)}
+.radio.sel{border-color:var(--brand);box-shadow:0 0 0 3px rgba(200,16,46,.09)}
+
+/* stream */
+.stream{list-style:none;margin:0;padding:0}
+.stream li{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.stream li:last-child{border-bottom:0}
+.stream .mark{
+  width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-items:center;
+  font-size:12px;font-weight:700;border:1px solid var(--line-2);color:var(--dim);background:#f7f8fa;margin-top:1px;
+}
+.stream li.ok .mark{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+.stream li.fail .mark{background:var(--no-bg);border-color:var(--no-line);color:var(--no)}
+.stream .t{font-size:14px;font-weight:600}
+.stream .d{font-size:13px;color:var(--muted);margin-top:2px}
+.stream .x{font-family:var(--mono);font-size:12px;margin-top:6px;word-break:break-all}
+.stream .x a{color:var(--brand)}
+
+.spinner{
+  width:16px;height:16px;border:2px solid var(--line-2);border-top-color:var(--brand);
+  border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:-3px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;
+  background:#12161c;color:#fff;border-radius:9px;padding:12px 18px;font-size:13.5px;
+  box-shadow:0 12px 30px -8px rgba(0,0,0,.4);max-width:92vw;
+}
+.banner{
+  background:var(--wait-bg);border:1px solid var(--wait-line);color:var(--wait);
+  border-radius:9px;padding:11px 14px;font-size:13.5px;margin-bottom:18px;
+}
+.banner b{color:var(--wait)}
+.banner.off{background:var(--no-bg);border-color:var(--no-line);color:var(--no)}
+.banner.off b{color:var(--no)}
+.check.na{opacity:.75}
+.check.na .val{color:inherit}
+pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:12px;border-radius:8px;background:#0d1013;color:#e6e8eb;margin:10px 0}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════ AUTH ══════════════════════════ -->
+<div id="auth" class="auth">
+  <aside class="auth-brand">
+    <div class="brandrow">
+      <span class="brandmark">S</span>
+      <b>StellarOnramp</b><em>Partner Portal</em>
+    </div>
+    <h1>Build the future of money movement.</h1>
+    <p>Manage your integration, track onboarding progress, and keep compliance in sync.</p>
+    <ul class="feat">
+      <li>Partner Onboarding</li>
+      <li>Wallet Management</li>
+      <li>Compliance &amp; KYC</li>
+    </ul>
+    <p class="sandbox-note">Sandbox environment · Stellar testnet · verification is provable on-chain</p>
+  </aside>
+
+  <main class="auth-panel">
+    <!-- sign in -->
+    <section id="view-signin" class="card">
+      <h2>Partner sign in</h2>
+      <p class="sub">Access your onboarding and compliance dashboard.</p>
+      <div id="signinAlert" class="alert" data-kind="info" hidden></div>
+      <form id="form-signin" novalidate>
+        <label class="field"><span>Email</span>
+          <input type="email" name="email" autocomplete="username" placeholder="you@company.com" required>
+        </label>
+        <label class="field"><span>Password</span>
+          <input type="password" name="password" autocomplete="current-password" required>
+        </label>
+        <button class="btn btn-primary btn-block" type="submit" id="signinBtn">Sign in</button>
+      </form>
+      <p class="alt">New partner? <a href="#" data-go="register">Create an account</a></p>
+    </section>
+
+    <!-- register -->
+    <section id="view-register" class="card" hidden>
+      <h2>Partner registration</h2>
+      <div class="steps">
+        <div class="dots" id="regDots">
+          <span data-dot="1" class="on"></span><span data-dot="2"></span><span data-dot="3"></span>
+        </div>
+        <span id="regLabel">Step 1 of 3</span>
+      </div>
+      <div id="registerAlert" class="alert" hidden></div>
+
+      <form id="form-register" novalidate>
+        <div class="wstep" data-step="1">
+          <label class="field"><span>Email</span>
+            <input type="email" name="email" autocomplete="username" placeholder="you@company.com" required>
+            <span class="hint">Any email works in this sandbox.</span>
+          </label>
+        </div>
+
+        <div class="wstep" data-step="2" hidden>
+          <div class="grid-2">
+            <label class="field"><span>Company name</span>
+              <input type="text" name="company" placeholder="Acme Payments Ltd" required>
+            </label>
+            <label class="field"><span>Country of registration</span>
+              <select name="country" required>
+                <option value="">Select…</option>
+                <option>United Kingdom</option>
+                <option>Germany</option>
+                <option>Netherlands</option>
+                <option>United States</option>
+                <option>Türkiye</option>
+                <option>Singapore</option>
+              </select>
+            </label>
+          </div>
+          <label class="field"><span>Your role</span>
+            <select name="role" required>
+              <option value="">Select…</option>
+              <option>Compliance / MLRO</option>
+              <option>Engineering</option>
+              <option>Product</option>
+              <option>Operations</option>
+              <option>Founder / Executive</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="wstep" data-step="3" hidden>
+          <label class="field"><span>Password</span>
+            <input type="password" name="password" autocomplete="new-password" required>
+            <span class="hint">At least 8 characters.</span>
+          </label>
+          <label class="field"><span>Confirm password</span>
+            <input type="password" name="confirm" autocomplete="new-password" required>
+          </label>
+        </div>
+
+        <div class="wactions">
+          <button class="btn btn-ghost" type="button" id="regBack" hidden>Back</button>
+          <button class="btn btn-primary" type="button" id="regNext">Continue</button>
+          <button class="btn btn-primary" type="submit" id="regSubmit" hidden>Create account</button>
+        </div>
+      </form>
+      <p class="alt">Already have an account? <a href="#" data-go="signin">Sign in</a></p>
+    </section>
+  </main>
+</div>
+
+<!-- ══════════════════════════ APP ══════════════════════════ -->
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="inner">
+      <div class="brandrow">
+        <span class="brandmark">S</span>
+        <b>StellarOnramp</b><em>Partner Portal</em>
+      </div>
+      <nav class="topnav">
+        <a href="/">Overview</a>
+        <a href="/demo">Live demo</a>
+      </nav>
+      <div class="whoami">
+        <span class="email" id="whoEmail"></span>
+        <button class="btn btn-ghost" type="button" id="signOut">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="side">
+      <button type="button" data-tab="overview" class="on">Overview</button>
+      <button type="button" data-tab="verify">Verification</button>
+      <button type="button" data-tab="chain">On-chain record</button>
+    </nav>
+
+    <main>
+      <!-- OVERVIEW -->
+      <section id="tab-overview">
+        <div class="panel">
+          <div class="head">
+            <h3>Onboarding status</h3>
+            <span class="spacer"></span>
+            <span class="status-pill" id="ovStatus" data-s="none">Not started</span>
+          </div>
+          <div class="body">
+            <dl class="kv">
+              <dt>Account</dt><dd id="ovEmail">—</dd>
+              <dt>Wallet address</dt><dd id="ovWallet">—</dd>
+              <dt>Claim bitmap</dt><dd id="ovBitmap">—</dd>
+              <dt>Attestation tx</dt><dd id="ovTx">—</dd>
+            </dl>
+            <div id="ovAction" class="note"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VERIFICATION -->
+      <section id="tab-verify" hidden>
+        <div class="panel">
+          <div class="head"><h3>Identity verification</h3><span class="spacer"></span>
+            <span class="small muted">Sandbox provider · Stellar testnet</span>
+          </div>
+          <div class="body">
+            <div id="chainBanner" class="banner off" hidden></div>
+            <div class="banner">
+              <b>Sandbox environment.</b> The KYC provider is a local mock that verifies whatever you
+              type, so do not enter real document details. The wallet, the credential and the
+              on-chain attestation, however, are real and land on Stellar testnet.
+            </div>
+
+            <!-- wizard -->
+            <div id="kycWizard">
+              <div class="ksteps" id="kDots">
+                <div data-kstep="1" class="on">1 · Personal</div>
+                <div data-kstep="2">2 · Document</div>
+                <div data-kstep="3">3 · Liveness</div>
+                <div data-kstep="4">4 · Review</div>
+              </div>
+              <div id="kycAlert" class="alert" hidden></div>
+
+              <div class="kwstep" data-kstep="1">
+                <div class="grid-2">
+                  <label class="field"><span>First name</span><input type="text" id="kFirst" placeholder="Amara"></label>
+                  <label class="field"><span>Last name</span><input type="text" id="kLast" placeholder="Osei"></label>
+                </div>
+                <label class="field"><span>Date of birth</span><input type="date" id="kDob"></label>
+                <label class="field"><span>Country of residence</span>
+                  <select id="kCountry">
+                    <option value="">Select…</option>
+                    <option value="DE">Germany</option><option value="GB">United Kingdom</option>
+                    <option value="NL">Netherlands</option><option value="US">United States</option>
+                    <option value="TR">Türkiye</option><option value="SG">Singapore</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="kwstep" data-kstep="2" hidden>
+                <div class="grid-2">
+                  <label class="field"><span>Document type</span>
+                    <select id="kDocType">
+                      <option>Passport</option><option>National ID card</option><option>Driver's licence</option>
+                    </select>
+                  </label>
+                  <label class="field"><span>Document number</span>
+                    <input type="text" id="kDocNumber" placeholder="P&lt;GBR9482715">
+                  </label>
+                </div>
+                <div class="field">
+                  <span>Document image</span>
+                  <div class="drop" id="kDrop">
+                    <div class="big" id="kDropTitle">Choose a file or drop it here</div>
+                    <div class="sub" id="kDropSub">PNG, JPG or PDF · stays in your browser, never uploaded</div>
+                    <input type="file" id="kFile" accept="image/png,image/jpeg,application/pdf" hidden>
+                  </div>
+                </div>
+              </div>
+
+              <div class="kwstep" data-kstep="3" hidden>
+                <div class="liveness">
+                  <div class="cam" id="kCam">
+                    <span class="camlabel" id="kCamLabel">SELFIE</span>
+                    <video id="kVideo" playsinline muted autoplay hidden></video>
+                    <img id="kStill" alt="Captured selfie" hidden>
+                  </div>
+                  <div style="min-width:250px;flex:1">
+                    <h4 style="font-size:15px">Liveness check</h4>
+                    <p class="small muted" style="margin-top:4px;max-width:48ch">
+                      Starting the camera asks your browser for permission, and the captured frame
+                      stays in this tab — it is never uploaded. A real provider runs a liveness
+                      algorithm; this demo has none, so a pass here is a UI affordance, not a check.
+                    </p>
+                    <div class="wactions" style="margin-top:12px">
+                      <button class="btn btn-ghost" type="button" id="kCapture">Start camera</button>
+                      <button class="btn btn-quiet" type="button" id="kUseSim" hidden>Simulate instead</button>
+                    </div>
+                    <p id="kCamNote" class="small muted" style="margin-top:8px"></p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="kwstep" data-kstep="4" hidden>
+                <h4 style="font-size:15px;margin-bottom:4px">Sandbox review outcome</h4>
+                <p class="small muted" style="margin-bottom:12px">
+                  Real KYC sandboxes let you pick a test scenario. The provider is mocked in this
+                  demo , but it verifies the answers you typed:
+                  the claims derive from your date of birth and country. Everything after this
+                  choice — the passkey wallet, the credential, the proof, the on-chain write — is real.
+                </p>
+                <div class="radios" id="kScenario">
+                  <label class="radio sel">
+                    <input type="radio" name="scenario" value="approved" checked>
+                    <span><b>Approved</b><span>Issues a credential and verifies its proof on chain.</span></span>
+                  </label>
+                  <label class="radio">
+                    <input type="radio" name="scenario" value="rejected">
+                    <span><b>Rejected</b><span>The provider refuses; nothing is issued and nothing is written.</span></span>
+                  </label>
+                </div>
+                <div id="kReview" class="note"></div>
+              </div>
+
+              <div class="wactions">
+                <button class="btn btn-ghost" type="button" id="kBack" hidden>Back</button>
+                <button class="btn btn-primary" type="button" id="kNext">Continue</button>
+                <button class="btn btn-primary" type="button" id="kSubmit" hidden>Submit for verification</button>
+              </div>
+            </div>
+
+            <!-- progress -->
+            <div id="kycProgress" hidden>
+              <p id="kRunState" class="small muted" style="margin-bottom:14px">
+                <span class="spinner"></span> Running verification…
+              </p>
+              <ol class="stream" id="kStream"></ol>
+              <div id="kResult" class="note" hidden></div>
+              <div class="wactions">
+                <button class="btn btn-ghost" type="button" id="kAgain" hidden>Run verification again</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CHAIN -->
+      <section id="tab-chain" hidden>
+        <div class="panel">
+          <div class="head"><h3>On-chain record</h3><span class="spacer"></span>
+            <button class="btn btn-ghost" type="button" id="chainRefresh">Refresh</button>
+          </div>
+          <div class="body" id="chainBody">
+            <p class="muted small">Connect and complete verification to see a record here.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script>
+'use strict';
+(function(){
+  var EXPLORER = 'https://stellar.expert/explorer/testnet';
+
+  var $ = function(id){ return document.getElementById(id); };
+  var state = { account: null, chainEnabled: true };
+
+  /* ---------------- helpers ---------------- */
+
+  function toast(msg){
+    var el = $('toast');
+    el.textContent = msg;
+    el.hidden = false;
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function(){ el.hidden = true; }, 4200);
+  }
+
+  function show(el, kind, msg){
+    if (!kind){ el.hidden = true; el.textContent = ''; return; }
+    el.dataset.kind = kind === 'info' ? 'info' : 'error';
+    el.textContent = msg;
+    el.hidden = false;
+  }
+
+  // Never build HTML from server/account strings: everything dynamic goes through textContent.
+  function setText(id, value){ $(id).textContent = value === null || value === undefined || value === '' ? '—' : String(value); }
+
+  function shortHash(h){ return typeof h === 'string' ? h.slice(0, 12) + '…' + h.slice(-8) : h; }
+
+  async function api(path, opts){
+    opts = opts || {};
+    var init = { method: opts.method || 'GET', credentials: 'same-origin', headers: {} };
+    if (opts.body !== undefined){
+      init.headers['content-type'] = 'application/json';
+      init.body = JSON.stringify(opts.body);
+    }
+    var res = await fetch(path, init);
+    var json = null;
+    try { json = await res.json(); } catch (e) { json = null; }
+    if (!res.ok){
+      var err = new Error((json && json.error && json.error.message) || ('Request failed (' + res.status + ')'));
+      err.status = res.status;
+      err.code = json && json.error ? json.error.code : 'http_' + res.status;
+      err.runId = json && json.error && json.error.runId ? json.error.runId : null;
+      throw err;
+    }
+    return json;
+  }
+
+  function statusLabel(s){
+    return s === 'approved' ? 'Verified'
+         : s === 'rejected' ? 'Rejected'
+         : s === 'pending'  ? 'In progress'
+         : 'Not started';
+  }
+
+  // The server reports whether the on-chain half is available (it is off only when it was started
+  // with no funded signer). Say so plainly and EARLY rather than letting the wizard fail at the
+  // last step: nothing here should look like it worked when it cannot.
+  function applyChainFlag(enabled){
+    state.chainEnabled = enabled !== false;
+    var b = $('chainBanner');
+    if (state.chainEnabled){ b.hidden = true; b.textContent = ''; return; }
+    b.textContent = '';
+    var strong = document.createElement('b');
+    strong.textContent = 'On-chain half disabled. ';
+    b.appendChild(strong);
+    b.appendChild(document.createTextNode(
+      'This server was started without a funded signer, so no BBS+ credential can be attested on ' +
+      'Stellar. Registration, sign-in and the wizard work; submitting verification returns ' +
+      'chain_unavailable and writes nothing.'
+    ));
+    b.hidden = false;
+  }
+
+  function applyAccount(payload){
+    state.account = payload.account;
+    if (payload.chainEnabled !== undefined) applyChainFlag(payload.chainEnabled);
+  }
+
+  /* ---------------- auth screens ---------------- */
+
+  function showAuth(view){
+    $('auth').hidden = false;
+    $('app').hidden = true;
+    $('view-signin').hidden = view !== 'signin';
+    $('view-register').hidden = view !== 'register';
+  }
+
+  function showApp(){
+    $('auth').hidden = true;
+    $('app').hidden = false;
+    renderAccount();
+    selectTab(state.account && state.account.kyc.status === 'none' ? 'verify' : 'overview');
+  }
+
+  function selectTab(name){
+    document.querySelectorAll('.side button').forEach(function(b){
+      b.classList.toggle('on', b.dataset.tab === name);
+    });
+    $('tab-overview').hidden = name !== 'overview';
+    $('tab-verify').hidden = name !== 'verify';
+    $('tab-chain').hidden = name !== 'chain';
+    if (name === 'chain') loadRecord();
+  }
+
+  document.querySelectorAll('.side button').forEach(function(b){
+    b.addEventListener('click', function(){ selectTab(b.dataset.tab); });
+  });
+  document.querySelectorAll('[data-go]').forEach(function(a){
+    a.addEventListener('click', function(e){ e.preventDefault(); showAuth(a.dataset.go); });
+  });
+
+  /* ---------------- register wizard ---------------- */
+
+  var regStep = 1;
+  function setRegStep(n){
+    regStep = n;
+    document.querySelectorAll('#form-register .wstep').forEach(function(el){
+      el.hidden = Number(el.dataset.step) !== n;
+    });
+    document.querySelectorAll('#regDots span').forEach(function(el){
+      el.classList.toggle('on', Number(el.dataset.dot) <= n);
+    });
+    $('regLabel').textContent = 'Step ' + n + ' of 3';
+    $('regBack').hidden = n === 1;
+    $('regNext').hidden = n === 3;
+    $('regSubmit').hidden = n !== 3;
+  }
+
+  function regValue(name){
+    var el = document.querySelector('#form-register [name="' + name + '"]');
+    return el ? el.value.trim() : '';
+  }
+
+  // Validation for steps 1–2, shared by the Continue button and the implicit form submission.
+  function advanceRegister(){
+    show($('registerAlert'));
+    if (regStep === 1){
+      var email = regValue('email').toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(email)) return show($('registerAlert'), 'error', 'Enter a valid email address.');
+      setRegStep(2);
+      return;
+    }
+    if (regStep === 2){
+      if (!regValue('company')) return show($('registerAlert'), 'error', 'Enter your company name.');
+      if (!regValue('country')) return show($('registerAlert'), 'error', 'Select a country of registration.');
+      if (!regValue('role')) return show($('registerAlert'), 'error', 'Select your role.');
+      setRegStep(3);
+    }
+  }
+
+  $('regBack').addEventListener('click', function(){ show($('registerAlert')); setRegStep(Math.max(1, regStep - 1)); });
+  $('regNext').addEventListener('click', advanceRegister);
+
+  $('form-register').addEventListener('submit', async function(e){
+    e.preventDefault();
+    // Pressing Enter in a step-1/2 field submits the form implicitly — the hidden submit button does
+    // NOT prevent that — so it must ADVANCE, not fail with "password must be 8 characters".
+    if (regStep < 3){ advanceRegister(); return; }
+    show($('registerAlert'));
+    var email = regValue('email');
+    var password = regValue('password');
+    var confirm = regValue('confirm');
+    if (password.length < 8) return show($('registerAlert'), 'error', 'Password must be at least 8 characters.');
+    if (password !== confirm) return show($('registerAlert'), 'error', 'Passwords do not match.');
+    $('regSubmit').disabled = true;
+    try {
+      var out = await api('/api/register', { method: 'POST', body: { email: email, password: password } });
+      applyAccount(out);
+      showApp();
+      toast('Account created. Next: identity verification.');
+    } catch (err){
+      if (err.code === 'email_in_use'){
+        // Not a dead end: switch to sign-in with the address filled in.
+        setRegStep(1);
+        var signinEmail = document.querySelector('#form-signin [name="email"]');
+        if (signinEmail) signinEmail.value = email;
+        showAuth('signin');
+        show($('signinAlert'), 'info', 'That email already has an account — sign in below.');
+        return;
+      }
+      show($('registerAlert'), 'error', err.message);
+    } finally {
+      $('regSubmit').disabled = false;
+    }
+  });
+
+  /* ---------------- sign in ---------------- */
+
+  $('form-signin').addEventListener('submit', async function(e){
+    e.preventDefault();
+    show($('signinAlert'));
+    var data = new FormData(e.target);
+    $('signinBtn').disabled = true;
+    try {
+      var out = await api('/api/login', { method: 'POST', body: {
+        email: String(data.get('email') || ''), password: String(data.get('password') || '')
+      }});
+      applyAccount(out);
+      showApp();
+    } catch (err){
+      show($('signinAlert'), 'error', err.message);
+    } finally {
+      $('signinBtn').disabled = false;
+    }
+  });
+
+  $('signOut').addEventListener('click', async function(){
+    try { await api('/api/logout', { method: 'POST' }); } catch (e) {}
+    state.account = null;
+    showAuth('signin');
+  });
+
+
+
+  function renderAccount(){
+    var a = state.account;
+    if (!a) return;
+    $('whoEmail').textContent = a.email;
+    setText('ovEmail', a.email);
+    setText('ovWallet', a.walletCAddr);
+    setText('ovBitmap', a.kyc.claimBitmap === undefined ? '—' : String(a.kyc.claimBitmap));
+
+    var txEl = $('ovTx');
+    txEl.textContent = '';
+    if (a.kyc.txHash){
+      var link = document.createElement('a');
+      link.href = EXPLORER + '/tx/' + a.kyc.txHash;
+      link.target = '_blank';
+      link.rel = 'noreferrer noopener';
+      link.textContent = shortHash(a.kyc.txHash);
+      txEl.appendChild(link);
+    } else {
+      txEl.textContent = '—';
+    }
+
+    var status = a.kyc.status || 'none';
+    var pill = $('ovStatus');
+    pill.dataset.s = status;
+    pill.textContent = statusLabel(status);
+
+    var action = $('ovAction');
+    action.className = 'note';
+    if (!state.chainEnabled){
+      action.className = 'note warn';
+      action.textContent = 'The on-chain half is disabled on this server: it was started without a funded signer. You can register, sign in and fill in the wizard, but a verification cannot be attested on Stellar.';
+      return;
+    }
+    if (status === 'none') action.innerHTML = 'Start <b>Identity verification</b> to mint your wallet and prove your claims on-chain.';
+    else if (status === 'pending') action.innerHTML = 'Verification is <b>in progress</b>. Open the <b>Verification</b> tab.';
+    else if (status === 'approved') { action.className = 'note'; action.innerHTML = 'Verified. Your claims are recorded on-chain — see the <b>On-chain record</b> tab.'; }
+    else if (status === 'rejected') { action.className = 'note warn'; action.innerHTML = 'The provider <b>refused</b> this verification, so nothing was issued or written. You can try again from the <b>Verification</b> tab.'; }
+  }
+
+  /* ---------------- KYC wizard ---------------- */
+
+  var kStep = 1;
+  function setKStep(n){
+    kStep = n;
+    document.querySelectorAll('.kwstep').forEach(function(el){ el.hidden = Number(el.dataset.kstep) !== n; });
+    document.querySelectorAll('#kDots div').forEach(function(el){
+      var d = Number(el.dataset.kstep);
+      el.classList.toggle('on', d === n);
+      el.classList.toggle('done', d < n);
+    });
+    $('kBack').hidden = n === 1;
+    $('kNext').hidden = n === 4;
+    $('kSubmit').hidden = n !== 4;
+    // Leaving the liveness step must RELEASE the camera, not leave the light on.
+    if (n !== 3) releaseCamera();
+    if (n === 4) renderReview();
+    show($('kycAlert'));
+  }
+
+  function kVal(id){ return ($(id).value || '').trim(); }
+
+  function renderReview(){
+    var docName = $('kFile').files && $('kFile').files[0] ? $('kFile').files[0].name : 'no file selected';
+    $('kReview').innerHTML =
+      'Applicant: <b>' + escapeHtml((kVal('kFirst') || '—') + ' ' + (kVal('kLast') || '—')) + '</b><br>' +
+      'Residence: <b>' + escapeHtml(kVal('kCountry') || '—') + '</b> · ' +
+      'Document: <b>' + escapeHtml($('kDocType').value) + '</b> · ' + escapeHtml(docName) + '<br>' +
+      'The document image stays in your browser. Name, date of birth, country and document number go to the local mock provider for this run only and are not stored; only the verification result and its on-chain proof are produced.';
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  document.querySelectorAll('#kScenario .radio').forEach(function(r){
+    r.addEventListener('click', function(){
+      document.querySelectorAll('#kScenario .radio').forEach(function(o){ o.classList.remove('sel'); });
+      r.classList.add('sel');
+    });
+  });
+
+  $('kBack').addEventListener('click', function(){ setKStep(Math.max(1, kStep - 1)); });
+  $('kNext').addEventListener('click', function(){
+    if (kStep === 1){
+      if (!kVal('kFirst') || !kVal('kLast')) return show($('kycAlert'), 'error', 'Enter your first and last name.');
+      if (!kVal('kDob')) return show($('kycAlert'), 'error', 'Enter your date of birth.');
+      if (!kVal('kCountry')) return show($('kycAlert'), 'error', 'Select your country of residence.');
+    }
+    if (kStep === 2){
+      if (!kVal('kDocNumber')) return show($('kycAlert'), 'error', 'Enter the document number.');
+      if (!$('kFile').files || !$('kFile').files[0]) return show($('kycAlert'), 'error', 'Attach a document image.');
+    }
+    if (kStep === 3 && !$('kCapture').dataset.pass){
+      return show($('kycAlert'), 'error', 'Run the liveness capture first.');
+    }
+    setKStep(Math.min(4, kStep + 1));
+  });
+
+  // document picker
+  $('kDrop').addEventListener('click', function(){ $('kFile').click(); });
+  $('kFile').addEventListener('change', function(){
+    var f = $('kFile').files && $('kFile').files[0];
+    if (!f) return;
+    $('kDrop').classList.add('has');
+    $('kDropTitle').textContent = f.name;
+    $('kDropSub').textContent = Math.max(1, Math.round(f.size / 1024)) + ' KB · stays in your browser, never uploaded';
+  });
+
+  /* ---------------- liveness: a real camera capture, with a labelled fallback ----------------
+   *
+   * The camera is real: `getUserMedia` -> live preview -> a frame drawn to a canvas -> the track is
+   * STOPPED and released. The frame never leaves the tab (nothing is uploaded) and there is NO
+   * liveness or face-match algorithm, so a pass is a UI affordance — the copy says so rather than
+   * implying a check. Every failure path (no API, no device, denied, busy) offers the simulated
+   * capture so the wizard always remains completable, and labels it as simulated when it runs.
+   *
+   * SECURE CONTEXT: `getUserMedia` only exists on https or on localhost/127.0.0.1. Served from a
+   * LAN IP it is undefined, which is why the fallback is not optional.
+   */
+
+  var camStream = null;
+
+  function releaseCamera(){
+    if (camStream !== null){
+      camStream.getTracks().forEach(function(t){ t.stop(); });
+      camStream = null;
+    }
+    var v = $('kVideo');
+    v.srcObject = null;
+    v.hidden = true;
+  }
+
+  function camNote(msg){ $('kCamNote').textContent = msg || ''; }
+
+  function delay(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+  function markLivenessPassed(){
+    $('kCam').classList.remove('live');
+    $('kCam').classList.add('pass');
+    $('kCapture').dataset.pass = '1';
+    show($('kycAlert'));
+  }
+
+  async function simulatedCapture(){
+    var cam = $('kCam'), label = $('kCamLabel');
+    $('kStill').hidden = true;
+    label.hidden = false;
+    cam.classList.add('live');
+    for (var n = 3; n > 0; n -= 1){
+      label.textContent = 'SIMULATED · ' + n;
+      await delay(700);
+    }
+    cam.classList.remove('live');
+    label.textContent = 'SIMULATED PASS';
+    camNote('Simulated capture — no camera was used.');
+    markLivenessPassed();
+  }
+
+  $('kCapture').addEventListener('click', async function(){
+    var btn = $('kCapture');
+    if (btn.dataset.busy) return;
+    btn.dataset.busy = '1';
+    btn.disabled = true;
+    camNote('');
+    $('kUseSim').hidden = true;
+
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function'){
+      camNote('This context exposes no camera API — it needs https or http://127.0.0.1. Falling back to a simulated capture.');
+      $('kUseSim').hidden = false;
+      await simulatedCapture();
+      btn.disabled = false;
+      delete btn.dataset.busy;
+      return;
+    }
+
+    try {
+      if (camStream === null){
+        camStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false,
+        });
+      }
+      var v = $('kVideo');
+      v.srcObject = camStream;
+      v.hidden = false;
+      $('kStill').hidden = true;
+      $('kCamLabel').hidden = true;
+      await v.play();
+      $('kCam').classList.remove('pass');
+      $('kCam').classList.add('live');
+
+      for (var n = 3; n > 0; n -= 1){
+        camNote('Hold still — capturing in ' + n + '…');
+        await delay(700);
+      }
+
+      var w = v.videoWidth || 640;
+      var h = v.videoHeight || 480;
+      var canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(v, 0, 0, w, h);
+      $('kStill').src = canvas.toDataURL('image/jpeg', 0.85);
+      $('kStill').hidden = false;
+
+      releaseCamera();
+      btn.textContent = 'Retake';
+      camNote('Frame captured in this tab only — nothing was uploaded.');
+      markLivenessPassed();
+    } catch (err){
+      releaseCamera();
+      var name = (err && err.name) || 'Error';
+      var why = name === 'NotAllowedError' ? 'Camera permission was denied.'
+              : name === 'NotFoundError' || name === 'DevicesNotFoundError' ? 'No camera device was found.'
+              : name === 'NotReadableError' ? 'The camera is already in use by another application.'
+              : 'The camera could not be started (' + name + ').';
+      camNote(why + ' You can still continue with a simulated capture, which is labelled as simulated.');
+      $('kUseSim').hidden = false;
+      btn.textContent = 'Try camera again';
+    } finally {
+      btn.disabled = false;
+      delete btn.dataset.busy;
+    }
+  });
+
+  $('kUseSim').addEventListener('click', async function(){
+    releaseCamera();
+    $('kUseSim').hidden = true;
+    $('kCapture').disabled = true;
+    await simulatedCapture();
+    $('kCapture').disabled = false;
+  });
+
+  $('kSubmit').addEventListener('click', async function(){
+    // Refuse locally before spending a wallet mint on a run that cannot complete. The server
+    // enforces the same rule with 503; this just says it sooner and without side effects.
+    if (!state.chainEnabled){
+      return show($('kycAlert'), 'error',
+        'The on-chain half is disabled on this server (no funded signer at boot), so this ' +
+        'verification cannot be attested. Restart without PORTAL_ALLOW_NO_SIGNER to complete it.');
+    }
+    var choice = document.querySelector('#kScenario input[name="scenario"]:checked');
+    var scenario = choice ? choice.value : 'approved';
+    $('kSubmit').disabled = true;
+    try {
+      await api('/api/kyc/start', { method: 'POST' });
+      // The identity answers go to the LOCAL mock provider for this run only: the server derives
+      // the claim booleans from them (over 18 from the real date of birth, jurisdiction from the
+      // country) and keeps none of it. The document image never leaves the browser.
+      var out = await api('/api/kyc/submit', { method: 'POST', body: {
+        scenario: scenario,
+        applicant: {
+          firstName: kVal('kFirst'),
+          lastName: kVal('kLast'),
+          dateOfBirth: kVal('kDob'),
+          country: kVal('kCountry'),
+          documentNumber: kVal('kDocNumber')
+        }
+      } });
+      releaseCamera();
+      $('kycWizard').hidden = true;
+      $('kycProgress').hidden = false;
+      $('kResult').hidden = true;
+      $('kAgain').hidden = true;
+      $('kStream').textContent = '';
+      streamRun(out.runId);
+    } catch (err){
+      show($('kycAlert'), 'error', err.message);
+      $('kSubmit').disabled = false;
+    }
+  });
+
+  $('kAgain').addEventListener('click', function(){
+    $('kycProgress').hidden = true;
+    $('kycWizard').hidden = false;
+    $('kSubmit').disabled = false;
+    setKStep(4);
+  });
+
+  function streamRun(runId){
+    var es = new EventSource('/api/kyc/stream?runId=' + encodeURIComponent(runId));
+    var finished = false;
+
+    es.onmessage = function(ev){
+      var step;
+      try { step = JSON.parse(ev.data); } catch (e) { return; }
+      upsertStep(step);
+    };
+
+    es.addEventListener('done', function(){ if (!finished){ finished = true; es.close(); onRunDone(); } });
+    es.addEventListener('error', function(ev){
+      if (finished) return;
+      finished = true;
+      es.close();
+      var msg = 'The run failed.';
+      try { var d = JSON.parse(ev.data); if (d && d.message) msg = d.message; } catch (e) {}
+      $('kRunState').innerHTML = 'Run stopped.';
+      var note = $('kResult');
+      note.className = 'note warn';
+      note.textContent = msg;
+      note.hidden = false;
+      $('kAgain').hidden = false;
+    });
+  }
+
+  function upsertStep(step){
+    var list = $('kStream');
+    var li = list.querySelector('[data-id="' + step.id + '"]');
+    if (!li){
+      li = document.createElement('li');
+      li.dataset.id = step.id;
+      li.innerHTML = '<span class="mark"></span><div><div class="t"></div><div class="d"></div><div class="x"></div></div>';
+      list.appendChild(li);
+    }
+    li.classList.toggle('ok', step.status === 'ok');
+    li.classList.toggle('fail', step.status === 'fail');
+    li.querySelector('.mark').textContent = step.status === 'ok' ? '✓' : step.status === 'fail' ? '✕' : '·';
+    li.querySelector('.t').textContent = step.title;
+    li.querySelector('.d').textContent = step.detail || '';
+
+    var x = li.querySelector('.x');
+    x.textContent = '';
+    if (step.txHash){
+      var a = document.createElement('a');
+      a.href = step.explorerUrl || (EXPLORER + '/tx/' + step.txHash);
+      a.target = '_blank';
+      a.rel = 'noreferrer noopener';
+      a.textContent = 'tx ' + shortHash(step.txHash) + ' ↗';
+      x.appendChild(a);
+    }
+    if (step.data && step.data.instructions !== undefined){
+      var div = document.createElement('div');
+      div.textContent = step.data.instructions.toLocaleString() + ' instructions · ' +
+                        step.data.feeChargedStroops.toLocaleString() + ' stroops';
+      x.appendChild(div);
+    }
+  }
+
+  async function onRunDone(){
+    $('kRunState').textContent = 'Verification finished.';
+    try {
+      var me = await api('/api/me');
+      applyAccount(me);
+      renderAccount();
+    } catch (e) {}
+    var note = $('kResult');
+    var approved = state.account && state.account.kyc.status === 'approved';
+    note.className = approved ? 'note' : 'note warn';
+    note.innerHTML = approved
+      ? 'Verified. Your claim record is written on-chain — open the <b>On-chain record</b> tab.'
+      : 'The provider refused verification. No credential was issued and nothing was written on-chain.';
+    note.hidden = false;
+    $('kAgain').hidden = false;
+  }
+
+  /* ---------------- on-chain record ---------------- */
+
+  $('chainRefresh').addEventListener('click', function(){ loadRecord(); });
+
+  async function loadRecord(){
+    var body = $('chainBody');
+    body.innerHTML = '<p class="muted small"><span class="spinner"></span> Reading from testnet…</p>';
+    var out;
+    try { out = await api('/api/kyc/record'); }
+    catch (err){
+      body.innerHTML = '';
+      var p = document.createElement('p');
+      p.className = 'muted small';
+      p.textContent = err.message;
+      body.appendChild(p);
+      return;
+    }
+    if (out.chainEnabled === false){
+      body.innerHTML = '<p class="muted small">The on-chain half is disabled on this server ' +
+        '(started without a funded signer), so there is no record to read.</p>';
+      return;
+    }
+    if (!out.view){
+      body.innerHTML = '<p class="muted small">Start identity verification first — there is no wallet to read yet.</p>';
+      return;
+    }
+    body.innerHTML = '';
+    var v = out.view;
+
+    var checks = document.createElement('div');
+    checks.className = 'checks';
+    // OVER_21 is never revealed by the on-ramp proof (the predicate discloses only the audit
+    // block, over18 and notSanctioned), so the chain holds no OVER_21 bit for anyone: a `false`
+    // here says "not disclosed", never "under 21". Label it as such rather than as a verdict.
+    [
+      ['check(OVER_18)', v.check.over18, null],
+      ['check(OVER_21)', v.check.over21, v.check.over21 ? null : 'not disclosed']
+    ].forEach(function(row){
+      var d = document.createElement('div');
+      d.className = 'check ' + (row[1] ? 'yes' : (row[2] ? 'na' : 'no'));
+      d.innerHTML = '<div class="lbl"></div><div class="val"></div>';
+      d.querySelector('.lbl').textContent = row[0];
+      d.querySelector('.val').textContent = row[2] ? row[2] : (row[1] ? 'true' : 'false');
+      checks.appendChild(d);
+    });
+    body.appendChild(checks);
+    var why = document.createElement('p');
+    why.className = 'muted small';
+    why.style.marginTop = '10px';
+    why.textContent = 'The on-ramp proof reveals only over-18 and not-sanctioned; OVER_21 stays ' +
+      'hidden under the signature, so the chain never learns it — for anyone, at any age.';
+    body.appendChild(why);
+
+    var dl = document.createElement('dl');
+    dl.className = 'kv';
+    dl.style.marginTop = '20px';
+    var rows = [['Subject', v.subject], ['Record', v.hasRecord ? 'present' : 'none']];
+    if (v.record){
+      Object.keys(v.record).forEach(function(k){ rows.push([k, v.record[k]]); });
+    }
+    rows.forEach(function(row){
+      var dt = document.createElement('dt');
+      dt.textContent = row[0];
+      var dd = document.createElement('dd');
+      dd.textContent = row[1] === null || row[1] === undefined ? '—' : String(row[1]);
+      dl.appendChild(dt); dl.appendChild(dd);
+    });
+    body.appendChild(dl);
+  }
+
+  /* ---------------- boot ---------------- */
+
+  (async function boot(){
+    try {
+      var me = await api('/api/me');
+      applyAccount(me);
+      showApp();
+    } catch (err){
+      showAuth('signin');
+    }
+  })();
+
+  setRegStep(1);
+  setKStep(1);
+})();
+</script>
+</body>
+</html>

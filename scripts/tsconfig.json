@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    // Scripts are run straight from source with `tsx`; this project exists purely so
+    // `npm run typecheck` covers them. Nothing is emitted.
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "composite": false,
+    "types": ["node"],
+    // The inherited `paths` are resolved relative to the repo root, not to this directory.
+    // Clear them and let the npm-workspace symlink resolve @stellaronramp/* instead, so the
+    // demo typechecks against the package's PUBLISHED .d.ts rather than its internals.
+    "paths": {}
+  },
+  "include": ["**/*.ts", "**/*.d.ts"]
+}
