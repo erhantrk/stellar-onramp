@@ -426,6 +426,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
             <dl class="kv">
               <dt>Account</dt><dd id="ovEmail">—</dd>
               <dt>Wallet address</dt><dd id="ovWallet">—</dd>
+              <dt>Wallet deploy tx</dt><dd id="ovWalletTx">—</dd>
               <dt>Claim bitmap</dt><dd id="ovBitmap">—</dd>
               <dt>Attestation tx</dt><dd id="ovTx">—</dd>
             </dl>
@@ -801,6 +802,17 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     $('whoEmail').textContent = a.email;
     setText('ovEmail', a.email);
     setText('ovWallet', a.walletCAddr);
+    var wtx = $('ovWalletTx');
+    wtx.textContent = '';
+    if (a.walletDeployTxHash){
+      var wl = document.createElement('a');
+      wl.href = 'https://stellar.expert/explorer/testnet/tx/' + a.walletDeployTxHash;
+      wl.target = '_blank'; wl.rel = 'noopener';
+      wl.textContent = a.walletDeployTxHash.slice(0, 8) + '…' + a.walletDeployTxHash.slice(-6);
+      wtx.appendChild(wl);
+    } else {
+      wtx.textContent = '—';
+    }
     setText('ovBitmap', a.kyc.claimBitmap === undefined ? '—' : String(a.kyc.claimBitmap));
 
     var txEl = $('ovTx');

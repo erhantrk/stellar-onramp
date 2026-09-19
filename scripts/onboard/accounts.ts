@@ -224,11 +224,15 @@ export interface AccountRecord {
   readonly passwordHash: string;
   readonly createdAt: number;
   /**
-   * The account's wallet contract address (`C…`), minted when the KYC run starts and then fixed
-   * for the account's lifetime. Absent until then — the portal has no wallet to bind a credential
-   * to before that.
+   * The account's passkey wallet contract address (`C…`), deployed on testnet during the first
+   * KYC run (scripts/onboard/wallet.ts) and then fixed for the account's lifetime. Absent until
+   * then — the portal has no wallet to bind a credential to before that.
    */
   readonly walletCAddr?: string;
+  /** The passkey credential id (base64url) the wallet contract was deployed with. */
+  readonly walletKeyId?: string;
+  /** The transaction that deployed the wallet contract on testnet. */
+  readonly walletDeployTxHash?: string;
   readonly kyc: AccountKyc;
 }
 
@@ -238,6 +242,7 @@ export interface PublicAccount {
   email: string;
   createdAt: number;
   walletCAddr: string | null;
+  walletDeployTxHash: string | null;
   kyc: AccountKyc;
 }
 
@@ -247,6 +252,7 @@ export function toPublicAccount(account: AccountRecord): PublicAccount {
     email: account.email,
     createdAt: account.createdAt,
     walletCAddr: account.walletCAddr ?? null,
+    walletDeployTxHash: account.walletDeployTxHash ?? null,
     kyc: { ...account.kyc },
   };
 }
@@ -349,12 +355,19 @@ export class JsonFileAccountStore {
   }
 
   /** Patch an account and persist. Returns the updated record. */
-  update(id: string, patch: Partial<Pick<AccountRecord, 'walletCAddr' | 'kyc'>>): AccountRecord {
+  update(
+    id: string,
+    patch: Partial<Pick<AccountRecord, 'walletCAddr' | 'walletKeyId' | 'walletDeployTxHash' | 'kyc'>>,
+  ): AccountRecord {
     const existing = this.#accounts.get(id);
     if (existing === undefined) throw new UnauthenticatedError();
     const next: AccountRecord = {
       ...existing,
       ...(patch.walletCAddr === undefined ? {} : { walletCAddr: patch.walletCAddr }),
+      ...(patch.walletKeyId === undefined ? {} : { walletKeyId: patch.walletKeyId }),
+      ...(patch.walletDeployTxHash === undefined
+        ? {}
+        : { walletDeployTxHash: patch.walletDeployTxHash }),
       ...(patch.kyc === undefined ? {} : { kyc: patch.kyc }),
     };
     this.#accounts.set(id, next);

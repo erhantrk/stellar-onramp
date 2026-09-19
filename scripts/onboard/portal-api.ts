@@ -63,8 +63,15 @@ export interface PortalApiDeps {
   }) => Promise<OnboardingResult>;
   /** Read a wallet's on-chain record and the gate's verdicts (`readOnChainRecord`). */
   readonly readRecord: (cAddr: string) => Promise<OnChainRecordView>;
-  /** Mint the wallet contract address an account's credentials bind to. */
-  readonly newWalletAddress: () => string;
+  /**
+   * Deploy the account's passkey smart wallet on testnet (scripts/onboard/wallet.ts). Called at
+   * most ONCE per account, from inside the first KYC run, so the deployment streams as a step.
+   */
+  readonly createWallet: (args: { userName: string; emit: EmitStep }) => Promise<{
+    address: string;
+    keyId: string;
+    deployTxHash: string;
+  }>;
   readonly now: () => number;
   /**
    * Whether the chain half of the portal can run at all — i.e. whether a FUNDED signer was
@@ -407,16 +414,22 @@ export async function handlePortalApi(
         const answer: 'GREEN' | 'RED' = scenario === 'approved' ? 'GREEN' : 'RED';
         deps.accounts.update(account.id, { kyc: { ...account.kyc, status: 'pending' } });
         const accountId = account.id;
+        const userName = account.email;
 
         const runId = deps.runs.start(
           account.id,
           async (emit) => {
-            // ONE wallet per account, minted when the run starts and then fixed: it is the
-            // subject every credential and every on-chain record is bound to.
+            // ONE wallet per account, deployed on first use and then fixed: it is the subject
+            // every credential and every on-chain record is bound to.
             let cAddr = deps.accounts.get(accountId)?.walletCAddr;
             if (cAddr === undefined) {
-              cAddr = deps.newWalletAddress();
-              deps.accounts.update(accountId, { walletCAddr: cAddr });
+              const wallet = await deps.createWallet({ userName, emit });
+              deps.accounts.update(accountId, {
+                walletCAddr: wallet.address,
+                walletKeyId: wallet.keyId,
+                walletDeployTxHash: wallet.deployTxHash,
+              });
+              cAddr = wallet.address;
             }
             return deps.runPipeline({ cAddr, answer, applicant, emit });
           },

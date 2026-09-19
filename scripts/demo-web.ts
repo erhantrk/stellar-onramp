@@ -20,8 +20,9 @@
  * Sign-in sessions, runs and the gateway's own stores are per-process.
  *
  * Environment: `PORT`, `GATEWAY_PORT`, `STELLARONRAMP_DEPLOYER_SECRET` (else the stellar CLI
- * alias `STELLAR_ALIAS`), `PORTAL_DATA_DIR`, `PORTAL_ALLOW_NO_SIGNER=1` (boot without a funded
- * signer; the on-chain half is disabled).
+ * alias `STELLAR_ALIAS`), `PORTAL_DATA_DIR`, `PORTAL_RP_ID` (WebAuthn relying-party id for the
+ * wallet), `PORTAL_ALLOW_NO_SIGNER=1` (boot without a funded signer; the on-chain half is
+ * disabled).
  */
 
 import { execFileSync } from 'node:child_process';
@@ -31,9 +32,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { randomBytes } from 'node:crypto';
-
-import { Address, Keypair } from '@stellar/stellar-sdk';
+import { Keypair } from '@stellar/stellar-sdk';
 
 import type { DemoDeps, EmitStep } from './demo/demo-flow.js';
 import { JsonFileAccountStore, PortalSessionStore } from './onboard/accounts.js';
@@ -335,6 +334,7 @@ async function main(): Promise<void> {
   const { createMockKyc } = await import('./demo/mock-kyc.js');
   const { runDemo, runOnboardingPipeline, readOnChainRecord } = await import('./demo/demo-flow.js');
   const { InMemoryRevocationIndexAllocator } = await import('@stellaronramp/gateway');
+  const { portalWalletMinter } = await import('./onboard/wallet.js');
 
   const testnet = readDeployments();
   const networkPassphrase = testnet.networkPassphrase;
@@ -386,6 +386,8 @@ async function main(): Promise<void> {
     '[demo-web] demo configuration:\n' +
       '  * The KYC provider is an in-process mock; its verdict is the scenario chosen in the wizard.\n' +
       '  * The BBS+ issuer secret derives from a fixed public seed. Testnet only.\n' +
+      '  * Each portal account gets a passkey smart wallet deployed on testnet through the Channels\n' +
+      '    relayer; the software authenticator key is discarded after deployment.\n' +
       '  * Both sockets bind 127.0.0.1. Attestations are paid by the deployer account.',
   );
 
@@ -456,6 +458,13 @@ async function main(): Promise<void> {
   const accounts = new JsonFileAccountStore(ACCOUNTS_FILE);
   const sessions = new PortalSessionStore();
   const runs = new InMemoryRunRegistry();
+  const wallets = portalWalletMinter({
+    rpcUrl,
+    networkPassphrase,
+    rpId: process.env['PORTAL_RP_ID'] ?? 'stellaronramp.local',
+    relayerBaseUrl: 'https://channels.openzeppelin.com/testnet',
+    explorerBase: deps.explorerBase,
+  });
   console.log(
     `[demo-web] partner portal: ${accounts.size} account(s) in ${DATA_DIR}\n` +
       `[demo-web] open http://127.0.0.1:${PORT}/portal` +
@@ -468,7 +477,7 @@ async function main(): Promise<void> {
     runs,
     runPipeline: (args) => runOnboardingPipeline(deps, args),
     readRecord: (cAddr) => readOnChainRecord(deps, cAddr),
-    newWalletAddress: () => Address.contract(randomBytes(32)).toString(),
+    createWallet: (args) => wallets.create(args),
     now: () => Math.floor(Date.now() / 1000),
     chainEnabled,
   };
