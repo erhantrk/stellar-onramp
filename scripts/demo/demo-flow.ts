@@ -309,7 +309,7 @@ async function runApprovedPath(deps: DemoDeps, args: RunContext): Promise<Onboar
 
   await emit({
     id: 'claims',
-    title: 'Derive claim set (PII discarded)',
+    title: 'Derive claim set (personal data discarded)',
     detail:
       "The provider's status was turned into six booleans in memory; the source attributes are " +
       'discarded here. Only the booleans travel any further.',
@@ -426,7 +426,7 @@ async function runApprovedPath(deps: DemoDeps, args: RunContext): Promise<Onboar
 
   await emit({
     id: 'piiScan',
-    title: 'PII scan over the presentation',
+    title: 'Scan the proof for personal data',
     detail:
       "Hunted the applicant's date of birth and document number across every string in the " +
       'serialised presentation, in four encodings (utf-8, hex, base64, sha256). Both came back ' +
