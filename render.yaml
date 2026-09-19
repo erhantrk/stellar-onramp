@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: stellar-onramp
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORTAL_PREBUILT
+        value: "1"
+      - key: PORTAL_DATA_DIR
+        value: /data
+      - key: PORTAL_SECURE_COOKIES
+        value: "1"
+      - key: PORTAL_RP_ID
+        sync: false
+      - key: STELLARONRAMP_DEPLOYER_SECRET
+        sync: false
