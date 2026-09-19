@@ -6,7 +6,7 @@ selective-disclosure proof of that credential itself and caches the result. Rely
 read a boolean; nobody re-collects the passport.
 
 - Live demo: LIVE_URL_PLACEHOLDER
-- Contracts on Stellar testnet: CONTRACT_IDS_PLACEHOLDER
+- Contracts on Stellar testnet: kyc-registry [`CDUYMKOSVKT3Q6GMFTA6Z2J47VK22C5KKJS4ZQJWAQ5HU4OUKGRO5MWM`](https://stellar.expert/explorer/testnet/contract/CDUYMKOSVKT3Q6GMFTA6Z2J47VK22C5KKJS4ZQJWAQ5HU4OUKGRO5MWM) · kyc-gate [`CDKDURQU57L5NVCLQVV3XJN44UECWRKTUDOMG5B7JCUAWYNYYVYWANSE`](https://stellar.expert/explorer/testnet/contract/CDKDURQU57L5NVCLQVV3XJN44UECWRKTUDOMG5B7JCUAWYNYYVYWANSE) · trex-wrap [`CBDKX6ZA6IWRTFWUVRURBEJ6KS4T3XXPJQY2SBIWOWJF5CM2PQSUPNAW`](https://stellar.expert/explorer/testnet/contract/CBDKX6ZA6IWRTFWUVRURBEJ6KS4T3XXPJQY2SBIWOWJF5CM2PQSUPNAW)
 
 ## Why
 

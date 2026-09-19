@@ -11,13 +11,46 @@
     },
     "contracts": {
       "kyc-registry": {
-        "id": ""
+        "id": "CDUYMKOSVKT3Q6GMFTA6Z2J47VK22C5KKJS4ZQJWAQ5HU4OUKGRO5MWM",
+        "wasmHash": "7feecad66ede16d371a244252cc000b10c2f09cbf804f68fdcab62a665447bdb",
+        "wasmBytes": 3800,
+        "deployedAt": "2026-09-20",
+        "admin": "GAOS3CYFTRFSBSVN4GORA3PSOIJICMMHDCRRQEOQDS42ASC4V52BXPE3",
+        "wasmVerified": "fetched back with `stellar contract fetch` and compared byte for byte with the local wasm32v1-none build",
+        "transactions": {
+          "deploy": "3466929f06d32fcd075f876fdaf524830e48dda620b297fb5624ca8c66fbd346",
+          "init": "37b8f71bfc063183b99fd12db3b5e2aaf245870089f7190c02432dcebbde122f",
+          "registerIssuer": "98c46190e77a5f59ebd56bb3371967f4a3315967c19639e9c23c92ace4d15eb9"
+        },
+        "issuers": {
+          "d0c2312f115838a63e1491aedcf000a98c8103c4d2beb3c96b1db6d1782562f1": "the demo issuer (seed 32 x 0x07, public by design), valid_until 0"
+        }
       },
       "kyc-gate": {
-        "id": ""
+        "id": "CDKDURQU57L5NVCLQVV3XJN44UECWRKTUDOMG5B7JCUAWYNYYVYWANSE",
+        "wasmHash": "fd7cc72bb9155cb56be78cfdfa7e522c532ea5c3637b4e9b162690ce3cd1f1b7",
+        "wasmBytes": 18578,
+        "deployedAt": "2026-09-20",
+        "admin": "GAOS3CYFTRFSBSVN4GORA3PSOIJICMMHDCRRQEOQDS42ASC4V52BXPE3",
+        "registry": "CDUYMKOSVKT3Q6GMFTA6Z2J47VK22C5KKJS4ZQJWAQ5HU4OUKGRO5MWM",
+        "wasmVerified": "fetched back with `stellar contract fetch` and compared byte for byte with the local wasm32v1-none build",
+        "transactions": {
+          "deploy": "4d35c318ebed12a87da5b13f463d0acc717355495bb0861182f6b73d7d377a9a",
+          "init": "77cf43af99f20cb0d28dded66fcb8e8a558021b0d681d033cfdadd7b010a07c9"
+        }
       },
       "trex-wrap": {
-        "id": ""
+        "id": "CBDKX6ZA6IWRTFWUVRURBEJ6KS4T3XXPJQY2SBIWOWJF5CM2PQSUPNAW",
+        "wasmHash": "7d77e2b6312410c80ea059341e9e97eef33a654ff21532ff8af6c54d534691c9",
+        "wasmBytes": 4674,
+        "deployedAt": "2026-09-20",
+        "owner": "GAOS3CYFTRFSBSVN4GORA3PSOIJICMMHDCRRQEOQDS42ASC4V52BXPE3",
+        "kycGate": "CDKDURQU57L5NVCLQVV3XJN44UECWRKTUDOMG5B7JCUAWYNYYVYWANSE",
+        "requiredBitmap": 5,
+        "wasmVerified": "fetched back with `stellar contract fetch` and compared byte for byte with the local wasm32v1-none build",
+        "transactions": {
+          "deploy": "eee4c9ac086e36b26a70b16d28c2ac20922cffec16032b12d7c61bd4ff36c107"
+        }
       }
     }
   },
