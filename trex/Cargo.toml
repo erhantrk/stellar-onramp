@@ -1,0 +1,36 @@
+# Workspace B — pinned a major behind workspace A ON PURPOSE.
+#
+# OpenZeppelin `stellar-tokens` 0.7.2 requires soroban-sdk "^26.1.0", which EXCLUDES 27.x.
+# Tag v0.8.0-rc.3 is also on 26.1.0; only the unpinnable `main` branch is on 27.0.2.
+# There is therefore no OZ release that works with soroban-sdk 27.x.
+#
+# Contracts talk across a wasm ABI boundary, not a Rust type boundary, so a v26 contract
+# and a v27 contract compose cleanly. env-meta is a MINIMUM-protocol assertion: a v26
+# contract runs fine on a Protocol 27 network. The only hard rule is never to ship a
+# contract whose env-meta protocol exceeds live mainnet.
+
+[workspace]
+resolver = "2"
+members = ["trex-wrap"]
+
+[workspace.dependencies]
+soroban-sdk    = "26.1.1"
+# Pin EXACTLY. OpenZeppelin's own README: "We recommend pinning to a specific version,
+# because rapid iterations are expected as the library is in an active development phase."
+stellar-tokens = "=0.7.2"
+stellar-access = "=0.7.2"
+stellar-macros = "=0.7.2"
+
+[profile.release]
+opt-level        = "z"
+overflow-checks  = true
+debug            = 0
+strip            = "symbols"
+debug-assertions = false
+panic            = "abort"
+codegen-units    = 1
+lto              = true
+
+[profile.release-with-logs]
+inherits         = "release"
+debug-assertions = true

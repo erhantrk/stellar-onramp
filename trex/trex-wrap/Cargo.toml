@@ -1,0 +1,25 @@
+[package]
+name = "trex-wrap"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.91.0"          # soroban-sdk 26.1.1 MSRV [VERIFIED]
+publish = false
+
+# `lib` is required so `cargo test` can link the unit tests against an rlib;
+# `cdylib` is the wasm artifact `stellar contract build` emits. Matches
+# contracts/kyc-gate/Cargo.toml exactly.
+[lib]
+crate-type = ["lib", "cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+# Pin EXACTLY (see trex/Cargo.toml). stellar-tokens provides the IdentityVerifier
+# trait; stellar-access provides ownable (set_owner/enforce_owner_auth);
+# stellar-macros provides the #[only_owner] attribute.
+stellar-tokens = { workspace = true }
+stellar-access = { workspace = true }
+stellar-macros = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
