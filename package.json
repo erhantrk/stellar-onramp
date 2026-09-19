@@ -1,0 +1,31 @@
+{
+  "name": "stellaronramp",
+  "private": true,
+  "version": "0.1.0",
+  "description": "KYC once, prove claims on chain: BBS+ credentials verified inside a Soroban contract",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "@stellar/stellar-sdk": "$@stellar/stellar-sdk"
+  },
+  "devDependencies": {
+    "@digitalbazaar/bbs-signatures": "3.1.0",
+    "@stellar/stellar-sdk": "16.2.0",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erhantrk/stellar-onramp.git"
+  },
+  "homepage": "https://github.com/erhantrk/stellar-onramp#readme"
+}

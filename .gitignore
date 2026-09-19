@@ -1,0 +1,20 @@
+node_modules/
+dist/
+target/
+*.tsbuildinfo
+
+.env
+.env.local
+*.pem
+*.key
+
+# Built contract artifacts; the deployed hashes are recorded in deployments.json.
+*.wasm
+!contracts/**/test_snapshots/**
+
+.DS_Store
+logs/
+coverage/
+
+# Portal state: accounts (password hashes), sessions, holder credentials. Never shared.
+scripts/.demo-data/
