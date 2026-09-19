@@ -34,7 +34,7 @@ import {
   assertPassword,
   clearedPortalSessionCookie,
   portalSessionCookie,
-  readCookie,
+  readCookies,
   toPublicAccount,
   type AccountRecord,
 } from './accounts.js';
@@ -202,11 +202,15 @@ function requireStringField(body: Record<string, unknown>, key: string): string 
 
 /** Resolve the signed-in account from the portal cookie, or refuse 401. */
 function requireAccount(deps: PortalApiDeps, req: IncomingMessage): AccountRecord {
-  const accountId = deps.sessions.resolve(readCookie(req.headers.cookie, PORTAL_COOKIE_NAME));
-  if (accountId === undefined) throw new UnauthenticatedError();
-  const account = deps.accounts.get(accountId);
-  if (account === undefined) throw new UnauthenticatedError();
-  return account;
+  // Try EVERY cookie of that name: on a real domain two can coexist (host-only + Domain=, or
+  // apex + www), and refusing both would sign the person out with no error anywhere.
+  for (const token of readCookies(req.headers.cookie, PORTAL_COOKIE_NAME)) {
+    const accountId = deps.sessions.resolve(token);
+    if (accountId === undefined) continue;
+    const account = deps.accounts.get(accountId);
+    if (account !== undefined) return account;
+  }
+  throw new UnauthenticatedError();
 }
 
 /**
@@ -355,7 +359,7 @@ export async function handlePortalApi(
       }
 
       case 'POST /api/logout': {
-        deps.sessions.destroy(readCookie(req.headers.cookie, PORTAL_COOKIE_NAME));
+        for (const token of readCookies(req.headers.cookie, PORTAL_COOKIE_NAME)) deps.sessions.destroy(token);
         res.setHeader('set-cookie', clearedPortalSessionCookie());
         sendJson(res, 200, { ok: true });
         return;

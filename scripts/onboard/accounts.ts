@@ -24,7 +24,7 @@
  * person, never the person's documents. Do not "round out" this record with the form fields.
  */
 
-import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -384,52 +384,153 @@ export class JsonFileAccountStore {
 export const PORTAL_COOKIE_NAME = 'portal_session';
 
 /**
- * Sign-in sessions: an opaque token -> account id, held in memory. A restart signs everyone out,
- * which keeps no bearer material on disk.
+ * Sign-in sessions: an opaque token -> account id, with a TTL.
+ *
+ * In-memory by default (tests, and the same behaviour as before: a restart signs everyone out).
+ * partner must not be signed out by every deploy. What hits disk is `sha256(token)`, never the
+ * token: the cookie is the only bearer, and a copy of the file cannot impersonate anyone.
+ * Expired entries are dropped lazily on resolve and on load.
  */
+export interface PortalSessionStoreOptions {
+  readonly file?: string;
+  /** Default 24 h — matches the cookie's Max-Age. */
+  readonly ttlSeconds?: number;
+  readonly now?: () => number;
+}
+
+interface PersistedSession {
+  tokenHash: string;
+  accountId: string;
+  expiresAt: number;
+}
+
+interface PersistedSessionsFile {
+  version: 1;
+  sessions: PersistedSession[];
+}
+
+export const SESSION_TTL_SECONDS = 86_400;
+
 export class PortalSessionStore {
-  readonly #tokenToAccount = new Map<string, string>();
+  readonly #byHash = new Map<string, PersistedSession>();
+  readonly #file: string | undefined;
+  readonly #ttl: number;
+  readonly #now: () => number;
+
+  constructor(options: PortalSessionStoreOptions = {}) {
+    this.#file = options.file;
+    this.#ttl = options.ttlSeconds ?? SESSION_TTL_SECONDS;
+    this.#now = options.now ?? (() => Math.floor(Date.now() / 1000));
+    this.#load();
+  }
+
+  #load(): void {
+    if (this.#file === undefined || !existsSync(this.#file)) return;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(readFileSync(this.#file, 'utf8'));
+    } catch (cause) {
+      throw new Error(`${this.#file} is not readable JSON; refusing to guess at sessions`, { cause });
+    }
+    const file = parsed as Partial<PersistedSessionsFile>;
+    if (file.version !== 1 || !Array.isArray(file.sessions)) {
+      throw new Error(`${this.#file} is not a version-1 sessions file`);
+    }
+    const now = this.#now();
+    for (const rec of file.sessions) {
+      if (typeof rec.tokenHash === 'string' && typeof rec.accountId === 'string' && rec.expiresAt > now) {
+        this.#byHash.set(rec.tokenHash, rec);
+      }
+    }
+  }
+
+  #persist(): void {
+    if (this.#file === undefined) return;
+    mkdirSync(dirname(this.#file), { recursive: true });
+    const body: PersistedSessionsFile = { version: 1, sessions: [...this.#byHash.values()] };
+    const tmp = `${this.#file}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify(body), { mode: 0o600 });
+    renameSync(tmp, this.#file);
+  }
+
+  #sweep(): void {
+    const now = this.#now();
+    let dropped = false;
+    for (const [hash, rec] of this.#byHash) {
+      if (rec.expiresAt <= now) {
+        this.#byHash.delete(hash);
+        dropped = true;
+      }
+    }
+    if (dropped) this.#persist();
+  }
 
   create(accountId: string): string {
+    this.#sweep();
     const token = randomBytes(32).toString('base64url');
-    this.#tokenToAccount.set(token, accountId);
+    this.#byHash.set(hashToken(token), {
+      tokenHash: hashToken(token),
+      accountId,
+      expiresAt: this.#now() + this.#ttl,
+    });
+    this.#persist();
     return token;
   }
 
-  /** The account id behind a token, or `undefined` when the token is unknown. */
+  /** The account id behind a token, or `undefined` when the token is unknown or expired. */
   resolve(token: string | undefined): string | undefined {
     if (token === undefined || token.length === 0) return undefined;
-    return this.#tokenToAccount.get(token);
+    const rec = this.#byHash.get(hashToken(token));
+    if (rec === undefined) return undefined;
+    if (rec.expiresAt <= this.#now()) {
+      this.#byHash.delete(rec.tokenHash);
+      this.#persist();
+      return undefined;
+    }
+    return rec.accountId;
   }
 
   destroy(token: string | undefined): void {
-    if (token !== undefined) this.#tokenToAccount.delete(token);
+    if (token === undefined) return;
+    if (this.#byHash.delete(hashToken(token))) this.#persist();
   }
 
   get size(): number {
-    return this.#tokenToAccount.size;
+    return this.#byHash.size;
   }
 }
 
-/** `Set-Cookie` for a portal session. HttpOnly + SameSite=Lax. */
-export function portalSessionCookie(token: string): string {
-  return `${PORTAL_COOKIE_NAME}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400`;
+function hashToken(token: string): string {
+  return createHash('sha256').update(token, 'utf8').digest('hex');
+}
+
+/** `Set-Cookie` for a portal session. HttpOnly + SameSite=Lax; `Secure` only when the deployment says it serves https. */
+export function portalSessionCookie(token: string, options: { secure?: boolean } = {}): string {
+  return (
+    `${PORTAL_COOKIE_NAME}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_TTL_SECONDS}` +
+    (options.secure ? '; Secure' : '')
+  );
 }
 
 /** The `Set-Cookie` value that clears the portal session. */
-export function clearedPortalSessionCookie(): string {
-  return `${PORTAL_COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`;
+export function clearedPortalSessionCookie(options: { secure?: boolean } = {}): string {
+  return `${PORTAL_COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0` + (options.secure ? '; Secure' : '');
 }
 
-/** The value carried under `name` in a raw `Cookie` header, if there is one. */
-export function readCookie(header: string | undefined, name: string): string | undefined {
-  if (header === undefined) return undefined;
+/**
+ * Every value carried under `name` in a raw `Cookie` header, in order. A real domain can end up
+ * with two cookies of the same name (a host-only one and a `Domain=` one, or apex and www); the
+ * caller tries each against the session store rather than signing the person out silently.
+ */
+export function readCookies(header: string | undefined, name: string): string[] {
+  if (header === undefined) return [];
+  const values: string[] = [];
   for (const part of header.split(';')) {
     const eq = part.indexOf('=');
     if (eq === -1) continue;
     if (part.slice(0, eq).trim() !== name) continue;
     const value = part.slice(eq + 1).trim();
-    if (value.length > 0) return value;
+    if (value.length > 0) values.push(value);
   }
-  return undefined;
+  return values;
 }

@@ -493,6 +493,10 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
                     <div class="sub" id="kDropSub">PNG, JPG or PDF · stays in your browser, never uploaded</div>
                     <input type="file" id="kFile" accept="image/png,image/jpeg,application/pdf" hidden>
                   </div>
+                  <div class="wactions" style="margin-top:10px">
+                    <button class="btn btn-quiet" type="button" id="kSkipDoc">Skip the image (demo)</button>
+                  </div>
+                  <p id="kDocNote" class="small muted" style="margin-top:6px"></p>
                 </div>
               </div>
 
@@ -512,6 +516,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
                     </p>
                     <div class="wactions" style="margin-top:12px">
                       <button class="btn btn-ghost" type="button" id="kCapture">Start camera</button>
+                      <button class="btn btn-quiet" type="button" id="kSkipLive">Skip liveness (demo)</button>
                       <button class="btn btn-quiet" type="button" id="kUseSim" hidden>Simulate instead</button>
                     </div>
                     <p id="kCamNote" class="small muted" style="margin-top:8px"></p>
@@ -869,7 +874,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
   function kVal(id){ return ($(id).value || '').trim(); }
 
   function renderReview(){
-    var docName = $('kFile').files && $('kFile').files[0] ? $('kFile').files[0].name : 'no file selected';
+    var docName = $('kFile').files && $('kFile').files[0] ? $('kFile').files[0].name : ($('kDrop').dataset.skipped ? 'no image (skipped)' : 'no file selected');
     $('kReview').innerHTML =
       'Applicant: <b>' + escapeHtml((kVal('kFirst') || '—') + ' ' + (kVal('kLast') || '—')) + '</b><br>' +
       'Residence: <b>' + escapeHtml(kVal('kCountry') || '—') + '</b> · ' +
@@ -899,7 +904,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     }
     if (kStep === 2){
       if (!kVal('kDocNumber')) return show($('kycAlert'), 'error', 'Enter the document number.');
-      if (!$('kFile').files || !$('kFile').files[0]) return show($('kycAlert'), 'error', 'Attach a document image.');
+      if (!(($('kFile').files && $('kFile').files[0]) || $('kDrop').dataset.skipped)) return show($('kycAlert'), 'error', 'Attach a document image, or skip it.');
     }
     if (kStep === 3 && !$('kCapture').dataset.pass){
       return show($('kycAlert'), 'error', 'Run the liveness capture first.');
@@ -907,7 +912,16 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     setKStep(Math.min(4, kStep + 1));
   });
 
-  // document picker
+  // document picker — or skip it: the image never leaves the browser and the mock provider does
+  // not read it, so skipping changes nothing about the run. A jury should not have to find a file.
+  $('kSkipDoc').addEventListener('click', function(){
+    $('kDrop').dataset.skipped = '1';
+    $('kDrop').classList.add('has');
+    $('kDropTitle').textContent = 'No image (skipped)';
+    $('kDropSub').textContent = 'The mock provider never reads the image; the document number is what it verifies.';
+    $('kDocNote').textContent = '';
+    show($('kycAlert'));
+  });
   $('kDrop').addEventListener('click', function(){ $('kFile').click(); });
   $('kFile').addEventListener('change', function(){
     var f = $('kFile').files && $('kFile').files[0];
@@ -1040,6 +1054,19 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     $('kCapture').disabled = true;
     await simulatedCapture();
     $('kCapture').disabled = false;
+  });
+
+  // The always-visible skip: same labelled simulated path, no camera prompt at all.
+  $('kSkipLive').addEventListener('click', async function(){
+    var btn = $('kSkipLive');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    releaseCamera();
+    $('kUseSim').hidden = true;
+    $('kCapture').disabled = true;
+    await simulatedCapture();
+    $('kCapture').disabled = false;
+    btn.disabled = false;
   });
 
   $('kSubmit').addEventListener('click', async function(){

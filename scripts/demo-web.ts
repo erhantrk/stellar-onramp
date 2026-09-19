@@ -17,8 +17,8 @@
  * `attest_bbs` to Stellar testnet from the deployer account.
  *
  * Durable state lives in the data directory (`PORTAL_DATA_DIR`, default `scripts/.demo-data/`):
- * accounts, holder-side credentials, the revocation-index counter and the status list. Sign-in
- * sessions, runs and the gateway's own session store are per-process.
+ * accounts, hashed sign-in sessions, holder-side credentials, the revocation-index counter and
+ * the status list. Runs and the gateway's own session store are per-process.
  *
  * Environment: `PORT`, `GATEWAY_PORT`, `STELLARONRAMP_DEPLOYER_SECRET` (else the stellar CLI
  * alias `STELLAR_ALIAS`), `PORTAL_DATA_DIR`, `PORTAL_RP_ID` (WebAuthn relying-party id for the
@@ -458,7 +458,7 @@ async function main(): Promise<void> {
   /* --- the partner portal ------------------------------------------------ */
 
   const accounts = new JsonFileAccountStore(ACCOUNTS_FILE);
-  const sessions = new PortalSessionStore();
+  const sessions = new PortalSessionStore({ file: join(DATA_DIR, 'sessions.json') });
   const runs = new InMemoryRunRegistry();
   const wallets = portalWalletMinter({
     rpcUrl,
@@ -468,7 +468,7 @@ async function main(): Promise<void> {
     explorerBase: deps.explorerBase,
   });
   console.log(
-    `[demo-web] partner portal: ${accounts.size} account(s) in ${DATA_DIR}, ` +
+    `[demo-web] partner portal: ${accounts.size} account(s) in ${DATA_DIR}, ${sessions.size} live session(s), ` +
       `${credentials.size} stored credential(s), next revocation index ${revocationIndexes.next}\n` +
       `[demo-web] open http://127.0.0.1:${PORT}/portal` +
       (chainEnabled ? '' : '  (chain half disabled)'),
