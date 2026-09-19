@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = ["kyc-registry"]
+
+[workspace.dependencies]
+# Matches live mainnet + testnet Protocol 27. Do NOT trust `stellar contract init`,
+# which scaffolds "25" on CLI 26 and "27" on CLI 27.1.0.
+soroban-sdk = "27.0.6"
+
+[profile.release]
+opt-level        = "z"
+overflow-checks  = true
+debug            = 0
+strip            = "symbols"
+debug-assertions = false
+panic            = "abort"
+codegen-units    = 1
+lto              = true
+
+# Faster test/dev cycles without re-tuning the release profile.
+[profile.release-with-logs]
+inherits         = "release"
+debug-assertions = true

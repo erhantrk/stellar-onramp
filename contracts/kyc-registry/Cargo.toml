@@ -1,0 +1,16 @@
+[package]
+name = "kyc-registry"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.91.0"          # soroban-sdk 27.0.6 MSRV
+publish = false
+
+[lib]
+crate-type = ["lib", "cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
