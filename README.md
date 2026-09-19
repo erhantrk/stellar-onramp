@@ -6,6 +6,7 @@ selective-disclosure proof of that credential itself and caches the result. Rely
 read a boolean; nobody re-collects the passport.
 
 - Live demo: https://stellar-onramp.onrender.com (the free tier sleeps after 15 minutes idle; the first request takes about a minute)
+- Packages: [`@stellaronramp/identity`](https://www.npmjs.com/package/@stellaronramp/identity), [`@stellaronramp/gateway`](https://www.npmjs.com/package/@stellaronramp/gateway), [`@stellaronramp/sdk`](https://www.npmjs.com/package/@stellaronramp/sdk)
 - Contracts on Stellar testnet: kyc-registry [`CDUYMKOSVKT3Q6GMFTA6Z2J47VK22C5KKJS4ZQJWAQ5HU4OUKGRO5MWM`](https://stellar.expert/explorer/testnet/contract/CDUYMKOSVKT3Q6GMFTA6Z2J47VK22C5KKJS4ZQJWAQ5HU4OUKGRO5MWM) · kyc-gate [`CDKDURQU57L5NVCLQVV3XJN44UECWRKTUDOMG5B7JCUAWYNYYVYWANSE`](https://stellar.expert/explorer/testnet/contract/CDKDURQU57L5NVCLQVV3XJN44UECWRKTUDOMG5B7JCUAWYNYYVYWANSE) · trex-wrap [`CBDKX6ZA6IWRTFWUVRURBEJ6KS4T3XXPJQY2SBIWOWJF5CM2PQSUPNAW`](https://stellar.expert/explorer/testnet/contract/CBDKX6ZA6IWRTFWUVRURBEJ6KS4T3XXPJQY2SBIWOWJF5CM2PQSUPNAW)
 
 ## Why
@@ -201,6 +202,14 @@ described for Render in `render.yaml` (Docker runtime, `/healthz`). Environment:
 
 Reset a portal password with `npx tsx scripts/onboard/reset-password.ts <email> <new-password>`
 and restart the server.
+
+## Packages on npm
+
+```bash
+npm install @stellaronramp/identity   # BBS+ credentials: issue, prove, verify, status list
+npm install @stellaronramp/gateway    # issuer side: claim derivation, credential issuance
+npm install @stellaronramp/sdk        # holder side: passkey wallet, custody, attest_bbs submission
+```
 
 ## License
 
