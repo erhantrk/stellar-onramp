@@ -35,9 +35,11 @@ import { fileURLToPath } from 'node:url';
 
 import { Keypair } from '@stellar/stellar-sdk';
 
-import type { DemoDeps } from './demo/demo-flow.js';
+import type { DemoDeps, OnboardingResult } from './demo/demo-flow.js';
 import { JsonFileAccountStore, PortalSessionStore } from './onboard/accounts.js';
 import { InMemoryRunRegistry } from './onboard/kyc-run.js';
+import { JsonFileFundingKeyStore, TR_MOCK_ANCHOR, readOnrampState, runOnramp } from './onboard/onramp.js';
+import type { OnrampDeps, OnrampResult } from './onboard/onramp.js';
 import { handlePortalApi } from './onboard/portal-api.js';
 import type { PortalApiDeps } from './onboard/portal-api.js';
 
@@ -456,7 +458,7 @@ async function main(): Promise<void> {
 
   const accounts = new JsonFileAccountStore(ACCOUNTS_FILE);
   const sessions = new PortalSessionStore({ file: join(DATA_DIR, 'sessions.json') });
-  const runs = new InMemoryRunRegistry();
+  const runs = new InMemoryRunRegistry<OnboardingResult>();
   const wallets = portalWalletMinter({
     rpcUrl,
     networkPassphrase,
@@ -471,10 +473,19 @@ async function main(): Promise<void> {
       (chainEnabled ? '' : '  (chain half disabled)'),
   );
 
+  const fundingKeys = new JsonFileFundingKeyStore(join(DATA_DIR, 'funding-keys.json'));
+  const onramp: OnrampDeps = {
+    anchor: TR_MOCK_ANCHOR,
+    fundingKeys,
+    gateAllows: async (cAddr) => (await readOnChainRecord(deps, cAddr)).check.over18,
+  };
   const portal: PortalApiDeps = {
     accounts,
     sessions,
     runs,
+    onrampRuns: new InMemoryRunRegistry<OnrampResult>(),
+    runOnramp: (args) => runOnramp(onramp, args),
+    readOnramp: (accountId) => readOnrampState(onramp, accountId),
     runPipeline: (args) => runOnboardingPipeline(deps, args),
     readRecord: (cAddr) => readOnChainRecord(deps, cAddr),
     gateContractId,

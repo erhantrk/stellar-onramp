@@ -1,9 +1,6 @@
 import { defineConfig } from 'vitest/config';
 
-/**
- * Package-level vitest config, resolved by the root config's `projects` list. `include` is the
- * whole `test/` tree, so a new subdirectory of suites needs no change here.
- */
+/** Package-level vitest config, resolved by the root config's `projects` list. `include` covers the whole test tree. */
 export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],

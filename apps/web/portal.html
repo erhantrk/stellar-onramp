@@ -416,6 +416,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
       <button type="button" data-tab="overview" class="on">Overview</button>
       <button type="button" data-tab="verify">Verification</button>
       <button type="button" data-tab="chain">On-chain record</button>
+      <button type="button" data-tab="buy">Buy USDC</button>
     </nav>
 
     <main>
@@ -573,6 +574,36 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
       </section>
 
       <!-- CHAIN -->
+      <section id="tab-buy" hidden>
+        <div class="panel">
+          <div class="head"><h3>Buy USDC with TRY</h3><span class="spacer"></span><span class="muted small">TR mock anchor · Stellar testnet</span></div>
+          <div class="body">
+            <div id="buyGate" class="note warn" hidden></div>
+            <div id="buyForm">
+              <p class="small muted" style="margin-bottom:12px">
+                The gate contract says whether this wallet may buy; the anchor sells the USDC. The purchase runs
+                SEP-10 authentication, a SEP-12 customer handoff with no documents, a SEP-38 firm quote and a SEP-6
+                bank deposit. The bank transfer is simulated by the sandbox anchor; the USDC it pays is real testnet USDC.
+              </p>
+              <label class="field" style="max-width:280px"><span>Amount in TRY</span>
+                <input type="number" id="buyAmount" value="500" min="50" max="5000" step="1">
+                <span class="hint">Between 50 and 5,000 TRY.</span>
+              </label>
+              <div class="wactions" style="margin-top:14px">
+                <button class="btn btn-primary" type="button" id="buySubmit">Buy USDC with TRY</button>
+              </div>
+            </div>
+            <div id="buyProgress" hidden>
+              <p id="buyRunState" class="small muted" style="margin-bottom:14px"><span class="spinner"></span> Talking to the anchor…</p>
+              <ol class="stream" id="buyStream"></ol>
+              <div id="buyResult" class="note" hidden></div>
+              <div class="wactions" style="margin-top:14px"><button class="btn btn-ghost" type="button" id="buyAgain" hidden>Buy again</button></div>
+            </div>
+            <dl class="kv" id="buyState" style="margin-top:22px"></dl>
+          </div>
+        </div>
+      </section>
+
       <section id="tab-chain" hidden>
         <div class="panel">
           <div class="head"><h3>On-chain record</h3><span class="spacer"></span>
@@ -595,7 +626,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
   var EXPLORER = 'https://stellar.expert/explorer/testnet';
 
   var $ = function(id){ return document.getElementById(id); };
-  var state = { account: null, chainEnabled: true, activeRunId: null };
+  var state = { account: null, chainEnabled: true, activeRunId: null, activeOnrampRunId: null };
 
   /* ---------------- helpers ---------------- */
 
@@ -668,6 +699,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
   function applyAccount(payload){
     state.account = payload.account;
     state.activeRunId = payload.activeRunId || null;
+    state.activeOnrampRunId = payload.activeOnrampRunId || null;
     if (payload.chainEnabled !== undefined) applyChainFlag(payload.chainEnabled);
   }
 
@@ -712,7 +744,9 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     $('tab-overview').hidden = name !== 'overview';
     $('tab-verify').hidden = name !== 'verify';
     $('tab-chain').hidden = name !== 'chain';
+    $('tab-buy').hidden = name !== 'buy';
     if (name === 'chain') loadRecord();
+    if (name === 'buy') loadBuy();
   }
 
   document.querySelectorAll('.side button').forEach(function(b){
@@ -936,7 +970,7 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     else if (status === 'pending') action.innerHTML = state.activeRunId
       ? 'Verification is <b>in progress</b>. Open the <b>Verification</b> tab to watch it.'
       : 'Verification was <b>started but not finished</b>. Open the <b>Verification</b> tab to run it again.';
-    else if (status === 'approved') { action.className = 'note'; action.innerHTML = 'Verified. Your claims are recorded on-chain — see the <b>On-chain record</b> tab.'; }
+    else if (status === 'approved') { action.className = 'note'; action.innerHTML = 'Verified. Your claims are recorded on-chain — see the <b>On-chain record</b> tab, or <b>Buy USDC</b> with TRY through the anchor.'; }
     else if (status === 'rejected') { action.className = 'note warn'; action.innerHTML = 'The provider <b>refused</b> this verification, so nothing was issued or written. You can try again from the <b>Verification</b> tab.'; }
   }
 
@@ -1209,29 +1243,31 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     setKStep(4);
   });
 
-  function streamRun(runId){
-    var es = new EventSource('/api/kyc/stream?runId=' + encodeURIComponent(runId));
+  function streamRun(runId, opts){
+    opts = opts || {};
+    var ids = opts.ids || { state: 'kRunState', list: 'kStream', result: 'kResult', again: 'kAgain' };
+    var es = new EventSource((opts.path || '/api/kyc/stream') + '?runId=' + encodeURIComponent(runId));
     var finished = false;
     var drops = 0;
 
     es.onmessage = function(ev){
       var step;
       try { step = JSON.parse(ev.data); } catch (e) { return; }
-      upsertStep(step);
+      upsertStep(step, ids.list);
     };
 
     function stop(headline, message){
       finished = true;
       es.close();
-      $('kRunState').innerHTML = headline;
-      var note = $('kResult');
+      $(ids.state).innerHTML = headline;
+      var note = $(ids.result);
       note.className = 'note warn';
       note.textContent = message;
       note.hidden = false;
-      $('kAgain').hidden = false;
+      $(ids.again).hidden = false;
     }
 
-    es.addEventListener('done', function(){ if (!finished){ finished = true; es.close(); onRunDone(); } });
+    es.addEventListener('done', function(){ if (!finished){ finished = true; es.close(); (opts.onDone || onRunDone)(); } });
     es.addEventListener('error', function(ev){
       if (finished) return;
       // Two very different things arrive here. A payload means the SERVER ended the run with an
@@ -1249,15 +1285,15 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
         return;
       }
       drops += 1;
-      $('kRunState').innerHTML = '<span class="spinner"></span> Reconnecting…' + (drops > 1 ? ' (' + drops + ')' : '');
+      $(ids.state).innerHTML = '<span class="spinner"></span> Reconnecting…' + (drops > 1 ? ' (' + drops + ')' : '');
       if (drops >= 4){
         stop('Connection unstable.', 'The stream keeps dropping. The run may still be completing on the server — refresh this page to check your status.');
       }
     });
   }
 
-  function upsertStep(step){
-    var list = $('kStream');
+  function upsertStep(step, listId){
+    var list = $(listId || 'kStream');
     var li = list.querySelector('[data-id="' + step.id + '"]');
     if (!li){
       li = document.createElement('li');
@@ -1305,6 +1341,91 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
     note.hidden = false;
     $('kAgain').hidden = false;
   }
+
+  /* ---------------- buy USDC (anchor on-ramp) ---------------- */
+
+  var BUY_IDS = { state: 'buyRunState', list: 'buyStream', result: 'buyResult', again: 'buyAgain' };
+
+  function renderBuyState(st){
+    var dl = $('buyState');
+    dl.innerHTML = '';
+    var rows = [];
+    if (st.fundingAccount) rows.push(['Funding account', st.fundingAccount]);
+    if (st.usdcBalance !== null && st.usdcBalance !== undefined) rows.push(['USDC balance', st.usdcBalance + ' USDC']);
+    if (st.last){
+      rows.push(['Last purchase', st.last.tryAmount + ' TRY → ' + st.last.usdcAmount + ' USDC']);
+    }
+    rows.forEach(function(r){
+      var dt = document.createElement('dt'); dt.textContent = r[0];
+      var dd = document.createElement('dd'); dd.textContent = r[1];
+      dl.appendChild(dt); dl.appendChild(dd);
+    });
+    if (st.last && st.last.stellarTxHash){
+      var dt = document.createElement('dt'); dt.textContent = 'Anchor payment';
+      var dd = document.createElement('dd');
+      var a = document.createElement('a'); a.href = EXPLORER + '/tx/' + st.last.stellarTxHash; a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = shortHash(st.last.stellarTxHash); dd.appendChild(a);
+      dl.appendChild(dt); dl.appendChild(dd);
+    }
+  }
+
+  async function loadBuy(){
+    var st;
+    try { st = await api('/api/onramp/state'); } catch (err){ show($('buyGate'), 'error', err.message); return; }
+    var gate = $('buyGate');
+    if (!st.allowed){
+      gate.className = 'note warn';
+      gate.textContent = 'The chain does not record a verified claim for this wallet yet. Complete identity verification first; the purchase is offered once kyc-gate answers true.';
+      gate.hidden = false;
+      $('buySubmit').disabled = true;
+    } else {
+      gate.hidden = true;
+      $('buySubmit').disabled = false;
+    }
+    renderBuyState(st);
+    if (state.activeOnrampRunId){ attachBuy(state.activeOnrampRunId); }
+  }
+
+  function attachBuy(runId){
+    $('buyForm').hidden = true;
+    $('buyProgress').hidden = false;
+    $('buyResult').hidden = true;
+    $('buyAgain').hidden = true;
+    $('buyStream').textContent = '';
+    $('buyRunState').innerHTML = '<span class="spinner"></span> Talking to the anchor…';
+    streamRun(runId, { path: '/api/onramp/stream', ids: BUY_IDS, onDone: onBuyDone });
+  }
+
+  async function onBuyDone(){
+    $('buyRunState').textContent = 'Purchase finished.';
+    var note = $('buyResult');
+    note.className = 'note';
+    note.textContent = 'The anchor paid USDC to the funding account on testnet.';
+    note.hidden = false;
+    $('buyAgain').hidden = false;
+    try { var me = await api('/api/me'); applyAccount(me); renderAccount(); } catch (e) {}
+    try { renderBuyState(await api('/api/onramp/state')); } catch (e) {}
+  }
+
+  $('buySubmit').addEventListener('click', async function(){
+    var amount = Number($('buyAmount').value);
+    if (!(amount >= 50 && amount <= 5000)) return show($('buyGate'), 'error', 'Enter an amount between 50 and 5,000 TRY.');
+    $('buySubmit').disabled = true;
+    try {
+      var out = await api('/api/onramp/start', { method: 'POST', body: { tryAmount: amount } });
+      attachBuy(out.runId);
+    } catch (err){
+      if (err.code === 'run_in_progress' && err.runId){ attachBuy(err.runId); return; }
+      show($('buyGate'), 'error', err.message);
+      $('buySubmit').disabled = false;
+    }
+  });
+
+  $('buyAgain').addEventListener('click', function(){
+    $('buyProgress').hidden = true;
+    $('buyForm').hidden = false;
+    $('buySubmit').disabled = false;
+  });
 
   /* ---------------- on-chain record ---------------- */
 

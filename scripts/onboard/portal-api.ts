@@ -39,6 +39,8 @@ import {
   type AccountRecord,
 } from './accounts.js';
 import type { InMemoryRunRegistry, RunEvent } from './kyc-run.js';
+import { ONRAMP_MAX_TRY, ONRAMP_MIN_TRY } from './onramp.js';
+import type { OnrampResult } from './onramp.js';
 import type { EmitStep, OnboardingResult, OnChainRecordView } from '../demo/demo-flow.js';
 import type { Applicant } from '../demo/mock-kyc.js';
 
@@ -53,7 +55,13 @@ const MAX_BODY_BYTES = 256 * 1024;
 export interface PortalApiDeps {
   readonly accounts: JsonFileAccountStore;
   readonly sessions: PortalSessionStore;
-  readonly runs: InMemoryRunRegistry;
+  readonly runs: InMemoryRunRegistry<OnboardingResult>;
+  /** On-ramp runs, kept apart from KYC runs so one cannot block the other. */
+  readonly onrampRuns: InMemoryRunRegistry<OnrampResult>;
+  /** Buy USDC with TRY through the anchor for a wallet the gate allows (scripts/onboard/onramp.ts). */
+  readonly runOnramp: (args: { accountId: string; walletCAddr: string; tryAmount: number; emit: EmitStep }) => Promise<OnrampResult>;
+  /** The funding account and its USDC balance, for the dashboard. */
+  readonly readOnramp: (accountId: string) => Promise<{ fundingAccount: string | null; usdcBalance: string | null }>;
   /** Run the real onboarding pipeline (`runOnboardingPipeline`) for one wallet + scenario. */
   readonly runPipeline: (args: {
     cAddr: string;
@@ -267,6 +275,7 @@ class FixedWindowLimiter {
 const registerLimiter = new FixedWindowLimiter(10, 10 * 60_000); // 10 sign-ups / 10 min / IP
 const loginLimiter = new FixedWindowLimiter(20, 10 * 60_000); // 20 attempts / 10 min / IP
 const submitLimiter = new FixedWindowLimiter(6, 10 * 60_000); // 6 runs / 10 min / IP
+const onrampLimiter = new FixedWindowLimiter(6, 10 * 60_000); // 6 purchases / 10 min / IP
 
 function assertNotRateLimited(limiter: FixedWindowLimiter, req: IncomingMessage, what: string): void {
   if (limiter.exceeded(clientIp(req))) {
@@ -292,6 +301,7 @@ function accountPayload(deps: PortalApiDeps, account: AccountRecord): Record<str
     account: toPublicAccount(account),
     chainEnabled: deps.chainEnabled,
     activeRunId: deps.runs.activeRunId(account.id) ?? null,
+    activeOnrampRunId: deps.onrampRuns.activeRunId(account.id) ?? null,
   };
 }
 
@@ -303,13 +313,20 @@ function accountPayload(deps: PortalApiDeps, account: AccountRecord): Record<str
  * Open an event stream for a run the caller owns. Ownership is checked BEFORE any header is
  * written, so a foreign or unknown run id answers 404 with a JSON body instead of an empty stream.
  */
+/** The read side of a run registry, so one stream writer serves KYC and on-ramp runs alike. */
+interface StreamableRuns {
+  describe(runId: string): { accountId: string; done: boolean } | undefined;
+  subscribe(runId: string, accountId: string, listener: (event: RunEvent<unknown>) => void): (() => void) | undefined;
+  isDone(runId: string): boolean;
+}
+
 function streamRun(
   res: ServerResponse,
-  deps: PortalApiDeps,
+  runs: StreamableRuns,
   runId: string,
   account: AccountRecord,
 ): void {
-  const info = deps.runs.describe(runId);
+  const info = runs.describe(runId);
   if (info === undefined || info.accountId !== account.id) {
     throw new PortalAccountError(404, 'not_found', 'no such run');
   }
@@ -364,8 +381,8 @@ function streamRun(
     end();
   };
 
-  unsubscribe = deps.runs.subscribe(runId, account.id, onEvent) ?? (() => {});
-  if (deps.runs.isDone(runId)) {
+  unsubscribe = runs.subscribe(runId, account.id, onEvent) ?? (() => {});
+  if (runs.isDone(runId)) {
     unsubscribe();
     end();
   }
@@ -573,7 +590,69 @@ export async function handlePortalApi(
         if (runId === null || runId.length === 0) {
           throw new PortalAccountError(400, 'missing_field', 'missing "runId"');
         }
-        streamRun(res, deps, runId, account);
+        streamRun(res, deps.runs as unknown as StreamableRuns, runId, account);
+        return;
+      }
+
+      /* ------------------------------ on-ramp ------------------------------ */
+
+      case 'POST /api/onramp/start': {
+        const account = requireAccount(deps, req);
+        assertNotRateLimited(onrampLimiter, req, 'purchases');
+        const body = await readJsonBody(req);
+        const raw = body['tryAmount'];
+        const tryAmount = typeof raw === 'number' ? raw : Number(raw);
+        if (!Number.isFinite(tryAmount) || tryAmount < ONRAMP_MIN_TRY || tryAmount > ONRAMP_MAX_TRY) {
+          throw new PortalAccountError(400, 'invalid_field', `"tryAmount" must be between ${ONRAMP_MIN_TRY} and ${ONRAMP_MAX_TRY}`);
+        }
+        if (!deps.chainEnabled) {
+          throw new PortalAccountError(503, 'chain_unavailable', 'the on-chain half is disabled on this server');
+        }
+        if (account.walletCAddr === undefined || account.kyc.status !== 'approved') {
+          throw new PortalAccountError(409, 'not_verified', 'complete identity verification first');
+        }
+        const active = deps.onrampRuns.activeRunId(account.id);
+        if (active !== undefined) {
+          sendJson(res, 409, { error: { code: 'run_in_progress', message: 'a purchase is already in progress', runId: active } });
+          return;
+        }
+        const walletCAddr = account.walletCAddr;
+        const accountId = account.id;
+        const runId = deps.onrampRuns.start(
+          accountId,
+          (emit) => deps.runOnramp({ accountId, walletCAddr, tryAmount, emit }),
+          (completion) => {
+            if (completion.result === undefined) return;
+            const r = completion.result;
+            // The funding account exists either way; a purchase is recorded only once the anchor's
+            // payment is on chain — a deposit still pending at the anchor is not a purchase yet.
+            deps.accounts.update(accountId, {
+              fundingAccount: r.fundingAccount,
+              ...(r.stellarTxHash.length === 0
+                ? {}
+                : { onramp: { tryAmount: r.tryAmount, usdcAmount: r.usdcAmount, stellarTxHash: r.stellarTxHash, at: deps.now() } }),
+            });
+          },
+        );
+        sendJson(res, 202, { runId });
+        return;
+      }
+
+      case 'GET /api/onramp/stream': {
+        const account = requireAccount(deps, req);
+        const runId = url.searchParams.get('runId');
+        if (runId === null || runId.length === 0) {
+          throw new PortalAccountError(400, 'missing_field', 'missing "runId"');
+        }
+        streamRun(res, deps.onrampRuns as unknown as StreamableRuns, runId, account);
+        return;
+      }
+
+      case 'GET /api/onramp/state': {
+        const account = requireAccount(deps, req);
+        const allowed = deps.chainEnabled && account.walletCAddr !== undefined && account.kyc.status === 'approved';
+        const state = await deps.readOnramp(account.id);
+        sendJson(res, 200, { allowed, ...state, last: account.onramp ?? null, min: ONRAMP_MIN_TRY, max: ONRAMP_MAX_TRY });
         return;
       }
 

@@ -20,17 +20,17 @@
 
 import { randomUUID } from 'node:crypto';
 
-import type { DemoStep, EmitStep, OnboardingResult } from '../demo/demo-flow.js';
+import type { DemoStep, EmitStep } from '../demo/demo-flow.js';
 
 /** One frame of a run's life. `step` frames stream; `done`/`error` are terminal. */
-export type RunEvent =
+export type RunEvent<R = unknown> =
   | { readonly type: 'step'; readonly step: DemoStep }
-  | { readonly type: 'done'; readonly result: OnboardingResult }
+  | { readonly type: 'done'; readonly result: R }
   | { readonly type: 'error'; readonly message: string };
 
 /** What the registry hands back when a run finishes, so the caller can persist the outcome. */
-export interface RunCompletion {
-  readonly result?: OnboardingResult;
+export interface RunCompletion<R = unknown> {
+  readonly result?: R;
   readonly error?: string;
   /**
    * The runner settled AFTER the run was already abandoned by the timeout. Nothing was published
@@ -46,12 +46,12 @@ export interface RunContext {
   readonly finished: () => boolean;
 }
 
-interface RunState {
+interface RunState<R> {
   readonly id: string;
   readonly accountId: string;
-  readonly events: RunEvent[];
+  readonly events: RunEvent<R>[];
   done: boolean;
-  readonly listeners: Set<(event: RunEvent) => void>;
+  readonly listeners: Set<(event: RunEvent<R>) => void>;
 }
 
 export interface RunRegistryOptions {
@@ -69,8 +69,8 @@ export interface RunRegistryOptions {
  * so a page that reconnects still gets the tail, then is evicted. This backs a long-lived hosted
  * process, so both bounds matter.
  */
-export class InMemoryRunRegistry {
-  readonly #runs = new Map<string, RunState>();
+export class InMemoryRunRegistry<R = unknown> {
+  readonly #runs = new Map<string, RunState<R>>();
   readonly #timeoutMs: number;
   readonly #retainMs: number;
 
@@ -86,11 +86,11 @@ export class InMemoryRunRegistry {
    */
   start(
     accountId: string,
-    runner: (emit: EmitStep, ctx: RunContext) => Promise<OnboardingResult>,
-    onComplete?: (completion: RunCompletion) => void,
+    runner: (emit: EmitStep, ctx: RunContext) => Promise<R>,
+    onComplete?: (completion: RunCompletion<R>) => void,
   ): string {
     const id = randomUUID();
-    const state: RunState = {
+    const state: RunState<R> = {
       id,
       accountId,
       events: [],
@@ -104,7 +104,7 @@ export class InMemoryRunRegistry {
     // state was already left `pending` by the timeout's completion); a hung RPC or relayer call
     // can therefore never pin `activeRunId` forever.
     let completed = false;
-    const finish = (event: RunEvent, completion: RunCompletion): void => {
+    const finish = (event: RunEvent<R>, completion: RunCompletion<R>): void => {
       if (completed) {
         // The runner settling after the timeout: not published, but not dropped either.
         if (event.type !== 'error' || completion.result !== undefined) onComplete?.({ ...completion, late: true });
@@ -141,7 +141,7 @@ export class InMemoryRunRegistry {
     return id;
   }
 
-  #publish(state: RunState, event: RunEvent): void {
+  #publish(state: RunState<R>, event: RunEvent<R>): void {
     state.events.push(event);
     if (event.type !== 'step') state.done = true;
     // Copy before iterating: a listener that unsubscribes itself (a stream that closed) must not
@@ -159,7 +159,7 @@ export class InMemoryRunRegistry {
   subscribe(
     runId: string,
     accountId: string,
-    listener: (event: RunEvent) => void,
+    listener: (event: RunEvent<R>) => void,
   ): (() => void) | undefined {
     const state = this.#runs.get(runId);
     if (state === undefined || state.accountId !== accountId) return undefined;

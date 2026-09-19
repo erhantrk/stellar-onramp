@@ -1,9 +1,6 @@
 import { defineConfig } from 'vitest/config';
 
-/**
- * Package-level vitest config, resolved by the root config's `projects` list. The wallet suites
- * run against a mocked relayer and RPC; nothing here touches the network.
- */
+/** Package-level vitest config, resolved by the root config's `projects` list. */
 export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],

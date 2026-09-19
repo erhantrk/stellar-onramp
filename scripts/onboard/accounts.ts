@@ -234,6 +234,10 @@ export interface AccountRecord {
   /** The transaction that deployed the wallet contract on testnet. */
   readonly walletDeployTxHash?: string;
   readonly kyc: AccountKyc;
+  /** The classic Stellar account (`G…`) that receives USDC from the anchor. Set by the first purchase. */
+  readonly fundingAccount?: string;
+  /** The last completed on-ramp: TRY sold, USDC bought, the anchor's payment transaction. */
+  readonly onramp?: { tryAmount: string; usdcAmount: string; stellarTxHash: string; at: number };
 }
 
 /** What the portal is allowed to send back to the browser. Same shape, minus the password hash. */
@@ -244,6 +248,8 @@ export interface PublicAccount {
   walletCAddr: string | null;
   walletDeployTxHash: string | null;
   kyc: AccountKyc;
+  fundingAccount: string | null;
+  onramp: { tryAmount: string; usdcAmount: string; stellarTxHash: string; at: number } | null;
 }
 
 export function toPublicAccount(account: AccountRecord): PublicAccount {
@@ -254,6 +260,8 @@ export function toPublicAccount(account: AccountRecord): PublicAccount {
     walletCAddr: account.walletCAddr ?? null,
     walletDeployTxHash: account.walletDeployTxHash ?? null,
     kyc: { ...account.kyc },
+    fundingAccount: account.fundingAccount ?? null,
+    onramp: account.onramp === undefined ? null : { ...account.onramp },
   };
 }
 
@@ -357,7 +365,7 @@ export class JsonFileAccountStore {
   /** Patch an account and persist. Returns the updated record. */
   update(
     id: string,
-    patch: Partial<Pick<AccountRecord, 'walletCAddr' | 'walletKeyId' | 'walletDeployTxHash' | 'kyc'>>,
+    patch: Partial<Pick<AccountRecord, 'walletCAddr' | 'walletKeyId' | 'walletDeployTxHash' | 'kyc' | 'fundingAccount' | 'onramp'>>,
   ): AccountRecord {
     const existing = this.#accounts.get(id);
     if (existing === undefined) throw new UnauthenticatedError();
@@ -369,6 +377,8 @@ export class JsonFileAccountStore {
         ? {}
         : { walletDeployTxHash: patch.walletDeployTxHash }),
       ...(patch.kyc === undefined ? {} : { kyc: patch.kyc }),
+      ...(patch.fundingAccount === undefined ? {} : { fundingAccount: patch.fundingAccount }),
+      ...(patch.onramp === undefined ? {} : { onramp: patch.onramp }),
     };
     this.#accounts.set(id, next);
     this.#persist();

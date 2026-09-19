@@ -45,6 +45,13 @@ The partner portal (`/portal`) walks one person through onboarding:
    instructions) and writes the claim record.
 8. The record is read back. The dashboard reads it again from the browser through public
    testnet RPC, with the server out of the path.
+9. With the record in place, the holder buys USDC with TRY through an anchor (**Buy USDC** tab).
+   The server checks `kyc-gate.check(wallet, OVER_18)` first, then runs SEP-10 authentication,
+   a SEP-12 customer handoff that carries no documents, a SEP-38 firm quote and a SEP-6 bank
+   deposit against the TR mock anchor. The bank transfer is simulated by the sandbox; the USDC
+   the anchor pays is real testnet USDC, and it lands in a classic funding account created for
+   the purchase (a passkey wallet is a contract and cannot sign a SEP-10 challenge; the demo
+   server holds that account's key, a production wallet signs with the person's own).
 
 ## Architecture
 
@@ -63,6 +70,7 @@ The partner portal (`/portal`) walks one person through onboarding:
                                    │                                              │ write claim record
  dashboard ◀─ simulateTransaction (check, claim_record) ──────────────────────────▶ kyc-gate
                                                                      trex-wrap ──▶ kyc-gate.check
+ buy USDC (TRY) ──/api──▶  on-ramp (scripts/onboard/onramp.ts) ──SEP-10/12/38/6──▶ TR mock anchor ──▶ USDC to the funding account
 ```
 
 ## Components
@@ -77,6 +85,7 @@ The partner portal (`/portal`) walks one person through onboarding:
 | `packages/sdk` | Holder library: passkey wallet create/connect, credential custody, `attest_bbs` argument encoding and submission, gateway client. |
 | `apps/gateway-http` | The gateway over HTTP: `POST /v1/session`, `POST /v1/credentials/issue`, `GET /v1/status-list/{issuer_id}`, issuer documents, health. Every seam is injected. |
 | `apps/web` | The landing page and the partner portal. |
+| `scripts/onboard/onramp.ts` | The TRY → USDC on-ramp: SEP-10, SEP-12, SEP-38 and SEP-6 against the anchor, gated by the contract's verdict; funding-account custody for the demo. |
 | `scripts/demo-web.ts`, `scripts/demo/`, `scripts/onboard/` | The demo server: boots the gateway on loopback, serves the portal, runs the pipeline, keeps accounts, sessions and holder credentials in a data directory. |
 
 ## Stellar integrations and protocols
@@ -88,6 +97,9 @@ The partner portal (`/portal`) walks one person through onboarding:
 - Passkey smart wallets: OpenZeppelin `passkey-kit`, deployed through the Channels relayer, with
   WebAuthn P-256 signers.
 - SEP-57 `IdentityVerifier` for regulated assets.
+- An anchor on-ramp over SEP-1, SEP-10, SEP-12, SEP-38 and SEP-6 (the TR mock anchor,
+  `tr-mock-anchor.fly.dev`), paying testnet USDC issued by Circle's testnet issuer. The gate's
+  on-chain verdict decides who is offered the purchase.
 - Stellar RPC `simulateTransaction` from the browser, so a viewer verifies the record without the
   demo server.
 - Every deployed wasm is fetched back with `stellar contract fetch` and compared byte for byte
@@ -114,6 +126,9 @@ The partner portal (`/portal`) walks one person through onboarding:
   holder and disclosed at the gate.
 - **The KYC provider is mocked.** The mock verifies the wizard's answers and applies the chosen
   verdict; the `KycProvider` seam is where a real provider plugs in.
+- **The on-ramp uses a funding account.** SEP-10 needs a classic account that can sign, so each
+  portal account gets one, created and funded on first purchase; the demo server keeps its key in
+  the data directory. The passkey wallet remains the KYC subject.
 - **The demo authenticator is software.** The portal deploys each wallet with a server-side P-256
   key that is discarded after deployment; in a browser the passkey is the person's own.
 - **Testnet only.** The issuer seed is fixed and the deployer pays for attestations.
