@@ -29,9 +29,34 @@ pub const CLAIM_JURISDICTION_OK: u32 = 1 << 3;
 const CLAIM_TTL_THRESHOLD: u32 = 1_036_800;
 const CLAIM_TTL_EXTEND_TO: u32 = 2_073_600;
 
-/// How far ahead a record may expire: it may never outlive the TTL its own entry is
-/// bumped to.
-const MAX_EXPIRY_HORIZON: u32 = CLAIM_TTL_EXTEND_TO;
+/// A consumed nonce is a temporary entry. It must outlive the attestation it protects, and
+/// its ceiling is `max_entry_ttl - 1` (the host requires `extend_to < max_entry_ttl`).
+const NONCE_MIN_TTL: u32 = 17_280;
+const NONCE_MAX_TTL: u32 = 3_110_399;
+
+/// How far ahead a record may expire. It is the smaller of the two storage lifetimes
+/// involved: a record must never outlive the nonce tombstone that stops its proof from
+/// being replayed, nor the TTL its own entry is bumped to.
+const MAX_EXPIRY_HORIZON: u32 = if CLAIM_TTL_EXTEND_TO < NONCE_MAX_TTL {
+    CLAIM_TTL_EXTEND_TO
+} else {
+    NONCE_MAX_TTL
+};
+
+/// How far ahead of the current ledger a presentation's `ledger_expiry` may sit (~1 day).
+/// A presentation is derived and submitted immediately; the short window is what makes the
+/// consumed nonce meaningful: with `PROOF_MAX_WINDOW <= NONCE_MIN_TTL`, every ledger in which
+/// a proof is still fresh is a ledger in which its nonce tombstone still exists.
+const PROOF_MAX_WINDOW: u32 = 17_280;
+const _: () = assert!(
+    PROOF_MAX_WINDOW <= NONCE_MIN_TTL,
+    "a proof must never stay fresh past the eviction of the nonce that was spent on it",
+);
+
+/// Domain separators for the presentation binding. They are the exact strings the off-chain
+/// library uses; changing either invalidates every proof in existence.
+const BINDING_DOMAIN: &[u8] = b"stellaronramp/presentation-binding/v1";
+const PRESENTATION_HEADER_DOMAIN: &[u8] = b"stellaronramp/presentation-header/v1";
 
 #[contracttype]
 #[derive(Clone)]
@@ -40,6 +65,8 @@ pub enum DataKey {
     Registry,
     /// subject -> ClaimRecord
     Claims(Address),
+    /// Consumed proof nonces, temporary storage.
+    Nonce(BytesN<32>),
 }
 
 /// A `ClaimRecord` with `claims == 0` is a revocation tombstone, not an attestation.
@@ -112,6 +139,7 @@ pub enum Error {
     NotInitialized = 2,
     NoClaimRecord = 3,
     Expired = 4,
+    NonceAlreadyUsed = 5,
     InvalidProof = 6,
     UntrustedIssuer = 7,
     /// An older attestation was replayed over a fresher live record.
@@ -135,6 +163,48 @@ pub struct Attested {
     pub claims: u32,
     pub expires_at: u32,
     pub issuer_id: BytesN<32>,
+}
+
+fn append_len_prefixed(msg: &mut Bytes, field: Bytes) {
+    msg.extend_from_array(&field.len().to_be_bytes());
+    msg.append(&field);
+}
+
+fn strkey_bytes(addr: &Address) -> Bytes {
+    addr.to_string().into()
+}
+
+/// The presentation header the holder MUST have bound the proof to. Derived on chain from
+/// the submitted `subject`, `nonce` and `ledger_expiry` plus this contract's own address and
+/// the network id, so a proof can only ever attest the subject it was made for, on this
+/// contract, on this network, before its deadline. The caller cannot supply it.
+fn presentation_header(
+    env: &Env,
+    subject: &Address,
+    nonce: &BytesN<32>,
+    ledger_expiry: u32,
+) -> Bytes {
+    let mut canonical = Bytes::new(env);
+    append_len_prefixed(&mut canonical, Bytes::from_slice(env, BINDING_DOMAIN));
+    append_len_prefixed(&mut canonical, Bytes::from_array(env, &nonce.to_array()));
+    append_len_prefixed(&mut canonical, strkey_bytes(subject));
+    append_len_prefixed(
+        &mut canonical,
+        strkey_bytes(&env.current_contract_address()),
+    );
+    append_len_prefixed(
+        &mut canonical,
+        Bytes::from_array(env, &env.ledger().network_id().to_array()),
+    );
+    append_len_prefixed(
+        &mut canonical,
+        Bytes::from_array(env, &ledger_expiry.to_be_bytes()),
+    );
+
+    let binding_digest = env.crypto().sha256(&canonical).to_array();
+    let mut ph_input = Bytes::from_slice(env, PRESENTATION_HEADER_DOMAIN);
+    ph_input.extend_from_array(&binding_digest);
+    Bytes::from_array(env, &env.crypto().sha256(&ph_input).to_array())
 }
 
 fn hex32(env: &Env, bytes: &[u8; 32]) -> Bytes {
@@ -225,8 +295,9 @@ impl KycGate {
     /// The issuer's public key is fetched from `kyc-registry`, so only a registered, live
     /// issuer is trusted. The proof must disclose the issuer id and revocation index it was
     /// issued with, and every claim bit requested must be backed by a disclosed `=true`
-    /// attribute. The presentation header the proof was bound to is supplied by the caller and
-    /// checked by the pairing.
+    /// attribute. The presentation header is derived here from the subject, nonce, deadline,
+    /// this contract and the network, so the proof cannot be replayed for anyone or anywhere
+    /// else; the nonce is then consumed so it cannot be replayed for the same subject either.
     ///
     /// Returns the claims written.
     pub fn attest_bbs(
@@ -241,7 +312,8 @@ impl KycGate {
         disclosed_indexes: Vec<u32>,
         disclosed_messages: Vec<Bytes>,
         header: Bytes,
-        presentation_header: Bytes,
+        nonce: BytesN<32>,
+        ledger_expiry: u32,
     ) -> Result<u32, Error> {
         if claims == 0 {
             return Err(Error::EmptyClaims);
@@ -254,6 +326,18 @@ impl KycGate {
         if expires_at - seq > MAX_EXPIRY_HORIZON {
             return Err(Error::ExpiryTooFar);
         }
+        if seq > ledger_expiry {
+            return Err(Error::Expired);
+        }
+        if ledger_expiry - seq > PROOF_MAX_WINDOW {
+            return Err(Error::ExpiryTooFar);
+        }
+
+        let nonce_key = DataKey::Nonce(nonce.clone());
+        if env.storage().temporary().has(&nonce_key) {
+            return Err(Error::NonceAlreadyUsed);
+        }
+
         if disclosed_indexes.len() != disclosed_messages.len() {
             return Err(Error::InvalidProof);
         }
@@ -329,6 +413,8 @@ impl KycGate {
             return Err(Error::InvalidProof);
         }
 
+        let presentation_header = presentation_header(&env, &subject, &nonce, ledger_expiry);
+
         let pk = soroban_sdk::crypto::bls12_381::Bls12381G2Affine::from_bytes(pubkey_g2.clone());
         if !bbs::verify_bbs_proof(
             &env,
@@ -365,6 +451,15 @@ impl KycGate {
                 });
             }
         }
+
+        env.storage().temporary().set(&nonce_key, &());
+        let nonce_ttl = expires_at
+            .saturating_sub(seq)
+            .max(NONCE_MIN_TTL)
+            .min(NONCE_MAX_TTL);
+        env.storage()
+            .temporary()
+            .extend_ttl(&nonce_key, nonce_ttl, nonce_ttl);
 
         let record = ClaimRecord {
             claims,
