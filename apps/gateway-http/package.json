@@ -1,0 +1,44 @@
+{
+  "name": "@stellaronramp/gateway-http",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The HTTP surface for the StellarOnramp KYC gateway (spec \u00a75.1), as a thin node:http transport wrapped around the tested @stellaronramp/gateway library. Routing, raw-body capture, request-id, response shaping and error mapping only \u2014 all correctness lives in the library.",
+  "license": "MIT",
+  "main": "./dist/server.js",
+  "types": "./dist/server.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js",
+      "default": "./dist/server.js"
+    },
+    "./bootstrap": {
+      "types": "./dist/bootstrap.d.ts",
+      "import": "./dist/bootstrap.js",
+      "default": "./dist/bootstrap.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build && tsc -p tsconfig.test.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-kms": "^3",
+    "@stellaronramp/gateway": "0.1.0",
+    "@stellaronramp/identity": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

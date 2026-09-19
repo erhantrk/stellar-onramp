@@ -1,0 +1,15 @@
+{
+  // Mirrors packages/gateway/tsconfig.json deliberately: same base, same composite layout, same
+  // dist/.tsbuildinfo. This is an APP that re-exports the server constructor, so it compiles to
+  // dist like the libraries do rather than as a loose script.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "resolveJsonModule": true
+  },
+  "include": ["src/**/*.ts"],
+  "references": [{ "path": "../../packages/gateway" }]
+}

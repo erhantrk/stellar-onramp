@@ -38,6 +38,7 @@ export {
   type SorobanGateSimulatorConfig,
   type SubjectChainState,
 } from './chain/epoch.js';
+
 export {
   AGE_THRESHOLDS,
   AgeError,
@@ -101,6 +102,7 @@ export {
   type IssueCredentialRequest,
   type IssuedCredential,
 } from './kyc/issue.js';
+
 export {
   BITSTRING_STATUS_LIST_CREDENTIAL_TYPE,
   BITSTRING_STATUS_LIST_TYPE,
@@ -141,3 +143,20 @@ export {
   type StatusListProvenance,
   type StatusListResolutionReason,
 } from './status/resolver.js';
+
+export {
+  EDDSA,
+  ES256,
+  JwsError,
+  REPLAY_UNCHECKED_NOTE,
+  ed25519PublicKeyFromRaw,
+  es256PublicKeyFromJwk,
+  generateEs256KeyPair,
+  signJws,
+  verifyJws,
+  type JtiReplayStore,
+  type JwsClaimsInput,
+  type JwsRejectionReason,
+  type VerifiedJws,
+  type VerifyJwsOptions,
+} from './auth/jws.js';
