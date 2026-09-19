@@ -34,6 +34,7 @@ export {
   type LoadSdkConfigOptions,
   type SdkConfig,
 } from './config.js';
+
 export {
   PASSKEY_WALLET_WASM_HASH,
   WalletError,
@@ -49,9 +50,58 @@ export {
   type SoftwareP256Options,
   type WalletDeploySubmitter,
 } from './wallet/index.js';
+
 export {
   StoreError,
   InMemoryCredentialStore,
   type CredentialStore,
   type StoredCredential,
 } from './store.js';
+
+export {
+  DEFAULT_EXPIRY_MARGIN_LEDGERS,
+  ExpiryError,
+  LatestLedgerSource,
+  ledgerExpiryFor,
+  recordExpiresAtFor,
+} from './expiry.js';
+
+export {
+  AttestError,
+  SubmissionError,
+} from './attest/errors.js';
+
+export { compareSorobanSymbol, SYMBOL_CHARS } from './attest/symbol.js';
+export { bbsProofScVal, BBS_PROOF_FIELD_ORDER } from './attest/proof-scval.js';
+export { attestBbsArgs, type AttestBbsArgsInput } from './attest/args.js';
+export { deriveGrantedClaims, ATTEST_GRANTS } from './attest/grants.js';
+export {
+  AttestSubmitter,
+  contractCall,
+  type LandedTx,
+  type AttestSubmitterConfig,
+  type SubmitOptions,
+} from './attest/submit.js';
+export {
+  IssuerPreflightError,
+  assertIssuerActive,
+  findSubstituteIssuer,
+} from './attest/registry.js';
+export { addrScVal, bytesScVal, u32 } from './attest/scval.js';
+
+export {
+  GatewayClient,
+  GatewayClientError,
+  GatewayNotFoundError,
+  GatewayNotImplementedError,
+  GatewaySessionNotApprovedError,
+  GatewayUnauthorizedError,
+  GatewayForbiddenError,
+  GatewayUnexpectedStatusError,
+  GatewayUnavailableError,
+  type GatewayClientConfig,
+  type IssuedCredentialResponse,
+  type IssueCredentialInput,
+  type IssuerDocument,
+  type SchemaDocument,
+} from './gateway-client.js';
