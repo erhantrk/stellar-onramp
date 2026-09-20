@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onramp — pitch</title>
+<meta name="description" content="KYC once, prove claims on chain. A BBS+ credential verified inside a Soroban contract.">
+<meta name="theme-color" content="#0d1013">
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="%230d1013"/><rect x="6" y="14" width="20" height="3" fill="%238e2a3a"/><rect x="6" y="7" width="20" height="3" fill="%232a3138"/><rect x="6" y="22" width="20" height="3" fill="%232a3138"/></svg>'>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#0d1013; --deep:#14181c; --card:#171c21; --line:#2a3138;
+  --accent:#8e2a3a; --accent-text:#b8485a; --accent-soft:#d18c97;
+  --ivory:#f1eee9; --slate:#9aa3ad; --dim:#5f6873;
+  --ok:#4c9a6a; --no:#b8485a;
+  --serif:'Source Serif 4',Georgia,serif;
+  --sans:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--void);color:var(--ivory);font-family:var(--sans)}
+.deck{height:100vh;overflow:hidden}
+.slide{
+  position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;
+  padding:clamp(28px,5vw,88px);max-width:1180px;margin:0 auto;
+}
+.slide.on{display:flex}
+h1{font-family:var(--serif);font-size:clamp(34px,6.2vw,76px);line-height:1.02;margin:0 0 18px;letter-spacing:-.02em}
+h2{font-family:var(--serif);font-size:clamp(24px,3.6vw,44px);line-height:1.1;margin:0 0 20px;letter-spacing:-.015em}
+h3{font-size:14px;text-transform:uppercase;letter-spacing:.14em;color:var(--accent-soft);margin:0 0 14px;font-weight:600}
+p{font-size:clamp(15px,1.55vw,21px);line-height:1.5;color:var(--slate);margin:0 0 14px;max-width:70ch}
+p.big{font-size:clamp(17px,1.8vw,25px);color:var(--ivory)}
+b,strong{color:var(--ivory);font-weight:600}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:18px}
+ul{margin:0;padding:0;list-style:none}
+li{font-size:clamp(15px,1.5vw,20px);line-height:1.45;color:var(--slate);margin:0 0 13px;padding-left:26px;position:relative}
+li::before{content:'';position:absolute;left:0;top:.62em;width:11px;height:2px;background:var(--accent-text)}
+li b{color:var(--ivory)}
+.mono{font-family:var(--mono);font-size:.88em;color:var(--accent-soft)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:clamp(20px,3vw,46px)}
+@media (max-width:820px){.cols{grid-template-columns:1fr;gap:18px}}
+.figs{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:26px}
+.fig{background:var(--deep);padding:clamp(14px,2vw,24px)}
+.fig .v{font-family:var(--serif);font-size:clamp(26px,3.6vw,46px);color:var(--ivory);line-height:1}
+.fig .v small{font-size:.44em;color:var(--slate);margin-left:4px}
+.fig .l{font-size:12px;color:var(--dim);margin-top:8px;line-height:1.35}
+table{width:100%;border-collapse:collapse;font-size:clamp(12px,1.15vw,15px);margin-top:10px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--slate)}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);font-weight:600}
+tr.us td{color:var(--ivory);background:rgba(142,42,58,.11)}
+.flow{font-family:var(--mono);font-size:clamp(10px,1.08vw,14px);line-height:1.75;color:var(--slate);background:var(--deep);border:1px solid var(--line);padding:clamp(14px,2.2vw,26px);overflow-x:auto;white-space:pre}
+.flow b{color:var(--accent-soft);font-weight:500}
+.links{font-family:var(--mono);font-size:clamp(11px,1.2vw,15px);line-height:2;color:var(--slate)}
+.links a{color:var(--accent-soft);text-decoration:none;border-bottom:1px solid rgba(209,140,151,.3)}
+.links span.k{color:var(--dim);display:inline-block;min-width:130px}
+.tag{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-soft);border:1px solid var(--line);padding:5px 10px;margin-bottom:22px}
+.yes{color:var(--ok)} .nope{color:var(--no)}
+.nav{position:fixed;bottom:18px;right:22px;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.1em;z-index:9}
+.nav b{color:var(--slate);font-weight:400}
+.hint{position:fixed;bottom:18px;left:22px;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.06em;z-index:9}
+@media print{
+  html,body{background:#fff;color:#111}
+  .deck{height:auto;overflow:visible}
+  .slide{display:flex!important;position:relative;inset:auto;height:100vh;page-break-after:always;max-width:none}
+  .nav,.hint{display:none}
+  h1,h2,b,strong,li b,p.big,.fig .v,tr.us td{color:#111}
+  p,li,td{color:#333}
+  .flow,.fig{background:#f6f6f4;border-color:#ddd;color:#333}
+}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<section class="slide on">
+  <div class="eyebrow">Stellar Pro Hackathon · Genesis track</div>
+  <h1>Onramp</h1>
+  <p class="big" style="max-width:62ch">KYC once. Prove the claim, not the document. A BBS+ credential
+    verified <b>inside</b> a Soroban contract, cached as a record any contract can read.</p>
+  <div class="links" style="margin-top:26px">
+    <div><span class="k">Live demo</span><a href="https://stellar-onramp.onrender.com/portal">stellar-onramp.onrender.com</a></div>
+    <div><span class="k">Code</span><a href="https://github.com/erhantrk/stellar-onramp">github.com/erhantrk/stellar-onramp</a></div>
+  </div>
+</section>
+
+<section class="slide">
+  <h3>The problem</h3>
+  <h2>Everyone re-collects the same passport.</h2>
+  <div class="cols">
+    <div>
+      <p><b>Off chain.</b> Every service that must know you are over 18, or not sanctioned, asks for
+        the same documents and keeps a copy. Each copy is a breach waiting to happen, and the answer
+        they actually needed was one bit.</p>
+    </div>
+    <div>
+      <p><b>On chain, it inverts.</b> A regulated asset cannot check identity at all without putting
+        identity on the ledger. So either the token stays closed, or personal data goes public.</p>
+    </div>
+  </div>
+  <div class="figs">
+    <div class="fig"><div class="v">12</div><div class="l">attributes a KYC check produces</div></div>
+    <div class="fig"><div class="v">1</div><div class="l">bit the relying party needed</div></div>
+    <div class="fig"><div class="v">0</div><div class="l">of it belongs on a ledger</div></div>
+  </div>
+</section>
+
+<section class="slide">
+  <h3>The solution</h3>
+  <h2>Verify once. Prove a boolean. Cache the verdict.</h2>
+  <ul>
+    <li>A provider verifies the person <b>once</b>. The result becomes a BBS+ credential of twelve
+      booleans, bound to their passkey smart wallet. No name, date of birth or document number in it.</li>
+    <li>The holder derives a <b>selective-disclosure proof</b> revealing only what a given gate asks for.</li>
+    <li><span class="mono">kyc-gate.attest_bbs</span> runs the BLS12-381 pairing <b>in the contract</b>
+      and writes a claim record. No operator signature is in the trust path.</li>
+    <li>Any contract then reads <span class="mono">check(subject, OVER_18)</span> for the cost of a
+      storage read — including a SEP-57 verifier that gates a regulated asset.</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <h3>The demo, in ninety seconds</h3>
+  <h2>The judge decides what the chain learns.</h2>
+  <ul>
+    <li>Register, fill the KYC wizard. The provider is mocked; everything after it is real.</li>
+    <li>A <b>passkey smart wallet</b> is deployed on testnet. It is the subject of everything that follows.</li>
+    <li><b>Tick which claims to disclose.</b> That choice changes what the contract records: the same
+      person, same credential, writes <span class="mono">claims: 7</span> or <span class="mono">5</span>.</li>
+    <li>Search the proof for your own birth date in four encodings. <b class="yes">Nothing.</b>
+      Search <span class="mono">over18=true</span>. <b class="yes">Found.</b></li>
+    <li>Read the record back <b>from your own browser</b> over public RPC. The server is not in that path.</li>
+    <li>An age-gated shop buys on the 18+ shelf and <b class="nope">refuses</b> the 21+ shelf, because
+      that claim was never disclosed.</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <h3>Architecture</h3>
+  <div class="flow">browser (portal)            demo server                     Stellar testnet
+─────────────────           ──────────────────────          ─────────────────
+wizard  ──/api──▶  onboarding pipeline
+                   │  POST /v1/session ─────▶  <b>gateway-http</b> (loopback)
+                   │  KYC verdict (mock)       sessions, claim derivation
+                   │  POST /v1/credentials/issue ─▶ <b>@stellaronramp/gateway</b>
+                   │        ◀── credential + salt     BBS+ issuance, status list
+                   │  holder store (credential, salt)
+                   │  prove()  ◀── <b>@stellaronramp/identity</b>
+                   │  attest_bbs ── <b>@stellaronramp/sdk</b> ──▶ <b>kyc-gate</b> ──▶ <b>kyc-registry</b>
+                   │                                        verify pairing, write record
+dashboard ◀── simulateTransaction (check, claim_record) ────▶ <b>kyc-gate</b>
+shop / SEP-57 adapter ─────────────────────────────────────▶ <b>trex-wrap</b> ──▶ kyc-gate.check
+anchor (SEP-10/12/38/6) ◀── TRY → USDC ────────────────────▶ testnet USDC</div>
+</section>
+
+<section class="slide">
+  <h3>Why this costs what it costs</h3>
+  <h2>Verify once, then read forever.</h2>
+  <div class="figs">
+    <div class="fig"><div class="v">105<small>M</small></div><div class="l">instructions to verify a proof, once per wallet</div></div>
+    <div class="fig"><div class="v">≈1.6<small>M</small></div><div class="l">instructions to read the cached record</div></div>
+    <div class="fig"><div class="v">492<small>B</small></div><div class="l">written per subject</div></div>
+  </div>
+  <p style="margin-top:22px">The network caps a ledger at 580M instructions, so proving on every
+    transfer would allow roughly eight verifications network-wide per ledger. Verifying once and
+    caching is the only shape that scales — and it is why a relying contract pays almost nothing.</p>
+</section>
+
+<section class="slide">
+  <h3>Built on Stellar</h3>
+  <div class="cols">
+    <div>
+      <ul>
+        <li><b>Soroban</b> contracts, built for <span class="mono">wasm32v1-none</span>, deployed on testnet.</li>
+        <li><b>BLS12-381 host functions</b> — the BBS+ verifier is written straight against them.</li>
+        <li><b>Passkey smart wallets</b> — OpenZeppelin passkey-kit through the Channels relayer.</li>
+      </ul>
+    </div>
+    <div>
+      <ul>
+        <li><b>SEP-57</b> IdentityVerifier adapter, so a regulated asset can require the verdict.</li>
+        <li><b>SEP-10/12/38/6</b> against an anchor: TRY to USDC for a wallet the gate approved.</li>
+        <li><b>Stellar RPC</b> <span class="mono">simulateTransaction</span> from the browser, so a
+          viewer verifies the record without trusting our server.</li>
+      </ul>
+    </div>
+  </div>
+  <p style="margin-top:8px">Three packages published to npm: <span class="mono">@stellaronramp/identity</span>,
+    <span class="mono">/gateway</span>, <span class="mono">/sdk</span>.</p>
+</section>
+
+<section class="slide">
+  <h3>How it compares</h3>
+  <h2>Most designs ask a contract to trust a key.</h2>
+  <table>
+    <thead><tr><th>Approach</th><th>What goes on chain</th><th>Who the contract trusts</th><th>Personal data</th></tr></thead>
+    <tbody>
+      <tr><td>Attestation registries</td><td>A record an issuer wrote</td><td>The issuer's account</td><td>Whatever the issuer puts in it</td></tr>
+      <tr><td>SEP-57 reference verifier</td><td>Stored claim signatures, country per wallet</td><td>A registry of claim issuers</td><td>Claim data on chain</td></tr>
+      <tr><td>Groth16 / UltraHonk proofs</td><td>Public inputs after an in-contract check</td><td>A verification key per circuit</td><td>Off chain, but a circuit per claim</td></tr>
+      <tr class="us"><td><b>Onramp</b></td><td>A record written only after an in-contract BBS+ check</td><td>The issuer's public key and the pairing itself</td><td>None, anywhere</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:16px">BBS+ gives selective disclosure from one signature: no per-claim circuit,
+    no trusted setup. Among Stellar identity projects we surveyed, nobody else uses it.</p>
+</section>
+
+<section class="slide">
+  <h3>Honest state</h3>
+  <div class="cols">
+    <div>
+      <h2 style="font-size:clamp(20px,2.4vw,30px)">Real</h2>
+      <ul>
+        <li>Three contracts deployed on testnet; every wasm fetched back and compared byte for byte.</li>
+        <li>A passkey wallet deployed per account, ownership verified on chain.</li>
+        <li>Credential, proof, in-contract verification, cached record, browser-side reads.</li>
+        <li>Anchor flow through quote and deposit instructions.</li>
+        <li>920 TypeScript tests, 53 Rust tests.</li>
+      </ul>
+    </div>
+    <div>
+      <h2 style="font-size:clamp(20px,2.4vw,30px)">Not real yet</h2>
+      <ul>
+        <li>The KYC provider is mocked — it verifies what the wizard typed.</li>
+        <li>The demo's passkey is a server-side software key, discarded after deployment.</li>
+        <li>Testnet only; the issuer seed is public by design.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <h3>Next</h3>
+  <h2>A real provider, a real passkey, mainnet.</h2>
+  <ul>
+    <li>Swap the mock for a KYC vendor behind the existing provider seam. The credential and contract
+      paths do not change.</li>
+    <li>Move the authenticator into the browser so the passkey is the person's own.</li>
+    <li>Revocation in the portal — the contract and the status list already support it.</li>
+    <li>Mainnet behind a multi-party admin key.</li>
+  </ul>
+  <p style="margin-top:10px"><b>Intended path:</b> Stellar Community Fund / InstaAwards.</p>
+</section>
+
+<section class="slide">
+  <h3>Try it</h3>
+  <h2>Everything is public.</h2>
+  <div class="links">
+    <div><span class="k">Live demo</span><a href="https://stellar-onramp.onrender.com/portal">stellar-onramp.onrender.com/portal</a></div>
+    <div><span class="k">Repository</span><a href="https://github.com/erhantrk/stellar-onramp">github.com/erhantrk/stellar-onramp</a></div>
+    <div><span class="k">kyc-registry</span><a href="https://stellar.expert/explorer/testnet/contract/CDUYMKOSVKT3Q6GMFTA6Z2J47VK22C5KKJS4ZQJWAQ5HU4OUKGRO5MWM">CDUYMKOS…5MWM</a></div>
+    <div><span class="k">kyc-gate</span><a href="https://stellar.expert/explorer/testnet/contract/CDKDURQU57L5NVCLQVV3XJN44UECWRKTUDOMG5B7JCUAWYNYYVYWANSE">CDKDURQU…ANSE</a></div>
+    <div><span class="k">trex-wrap</span><a href="https://stellar.expert/explorer/testnet/contract/CBDKX6ZA6IWRTFWUVRURBEJ6KS4T3XXPJQY2SBIWOWJF5CM2PQSUPNAW">CBDKX6ZA…PNAW</a></div>
+    <div><span class="k">npm</span>@stellaronramp/identity · /gateway · /sdk</div>
+  </div>
+  <p style="margin-top:26px;color:var(--dim);font-family:var(--mono);font-size:12px">
+    Testnet only · the demo issuer seed is public by design · the KYC provider is mocked</p>
+</section>
+
+</div>
+
+<div class="hint">← → or space · P to print</div>
+<div class="nav"><b id="n">1</b> / <span id="t">11</span></div>
+
+<script>
+'use strict';
+(function(){
+  var slides = [].slice.call(document.querySelectorAll('.slide'));
+  var i = 0;
+  document.getElementById('t').textContent = slides.length;
+
+  function show(next){
+    i = Math.max(0, Math.min(slides.length - 1, next));
+    slides.forEach(function(s, k){ s.classList.toggle('on', k === i); });
+    document.getElementById('n').textContent = i + 1;
+    if (location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(i + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(i - 1); }
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+    else if (e.key === 'p' || e.key === 'P') window.print();
+  });
+
+  // Tap right half to advance, left half to go back.
+  document.addEventListener('click', function(e){
+    if (e.target.closest('a')) return;
+    show(e.clientX > window.innerWidth / 2 ? i + 1 : i - 1);
+  });
+
+  var start = parseInt((location.hash || '').slice(1), 10);
+  show(Number.isFinite(start) && start > 0 ? start - 1 : 0);
+})();
+</script>
+</body>
+</html>

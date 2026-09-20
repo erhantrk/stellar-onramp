@@ -196,6 +196,7 @@ function serveStatic(res: ServerResponse, pathname: string): void {
   let relativePath: string;
   if (pathname === '/' || pathname === '') relativePath = 'index.html';
   else if (pathname === '/portal' || pathname === '/portal/') relativePath = 'portal.html';
+  else if (pathname === '/deck' || pathname === '/deck/') relativePath = 'deck.html';
   else relativePath = pathname.replace(/^\/+/, '');
 
   if (relativePath.includes('\0')) {
