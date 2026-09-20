@@ -693,14 +693,22 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
             <div class="rapp">
               <div class="tag">age-gated checkout · not part of this server</div>
               <p class="small" style="margin-top:8px">
-                A shop that sells to adults only. It knows nothing about you: it calls
-                <span class="mono">check(subject, OVER_18)</span> on the gate contract from this
-                browser and sells or refuses on the answer.
+                A shop with two age-restricted shelves. It knows nothing about you: it calls
+                <span class="mono">check(subject, claim)</span> on the gate contract from this
+                browser and sells or refuses on the answer. The 21+ shelf refuses unless you
+                disclosed <span class="mono">over21</span>, even though the same credential proves
+                it — the chain only holds what you chose to reveal.
               </p>
               <div class="row">
-                <button class="btn btn-primary" type="button" id="rappBuy">Buy (age-restricted)</button>
-                <button class="btn btn-ghost" type="button" id="rappOther">Try with a wallet that never verified</button>
+                <button class="btn btn-primary" type="button" id="rappBuy">Buy 18+ item</button>
+                <button class="btn btn-primary" type="button" id="rappBuy21">Buy 21+ item</button>
+                <button class="btn btn-ghost" type="button" id="rappOther">Try a wallet that never verified</button>
               </div>
+              <p class="small muted" style="margin-top:8px">
+                To watch your own wallet get refused on the 18+ shelf, run verification again from
+                the Verification tab with <span class="mono">over18</span> unticked, or with a date
+                of birth under 18. The record is rewritten and the shop's answer changes with it.
+              </p>
               <div class="out" id="rappOut"></div>
             </div>
           </div>
@@ -1711,10 +1719,16 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
 
   /* ---------------- a relying app, reading the record from this tab ---------------- */
 
-  // A C-address that has never been attested, for the refusal case. Valid strkey, no record.
-  var UNKNOWN_WALLET = 'CDVJJLNFLBTX735KQVEZTX3NX5AWNY6FTJLKWOZSNR2XN2QTLI436FIO';
+  // The refusal case needs a wallet with no record. Generate one per click rather than hard-coding
+  // an address: a fixed one could be attested by someone later, and then the shop would sell to it.
+  function freshWallet(Sdk){
+    var b = new Uint8Array(32);
+    crypto.getRandomValues(b);
+    return Sdk.StrKey.encodeContract(b);
+  }
 
-  async function rappCheck(subject, label){
+  // bit 1 is over18, bit 2 is over21 — the same claim bits the contract stores.
+  async function rappCheck(subject, label, claimBit, shelf){
     var out = $('rappOut');
     out.textContent = 'Asking the gate contract…';
     try {
@@ -1726,16 +1740,17 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
       var tx = new Sdk.TransactionBuilder(new Sdk.Account(chain.simulationSource, '0'), {
         fee: Sdk.BASE_FEE, networkPassphrase: chain.networkPassphrase
       }).addOperation(contract.call('check', new Sdk.Address(subject).toScVal(),
-        Sdk.nativeToScVal(1, { type: 'u32' }))).setTimeout(30).build();
+        Sdk.nativeToScVal(claimBit, { type: 'u32' }))).setTimeout(30).build();
       var sim = await server.simulateTransaction(tx);
       if (Sdk.rpc.Api.isSimulationError(sim)) throw new Error(sim.error);
       var ok = Sdk.scValToNative(sim.result.retval) === true;
+      var name = claimBit === 2 ? 'OVER_21' : 'OVER_18';
       out.className = 'out';
       out.innerHTML = ok
-        ? '<b style="color:var(--ok)">Sold.</b> check(OVER_18) returned true for ' + label +
-          ', so the shop completed the sale. It never saw a document, a name or a date of birth.'
-        : '<b style="color:var(--no)">Refused.</b> check(OVER_18) returned false for ' + label +
-          ', so the shop refused. It learns nothing else about the wallet.';
+        ? '<b style="color:var(--ok)">Sold.</b> check(' + name + ') returned true for ' + label +
+          ', so the shop sold the ' + shelf + ' item. It never saw a document, a name or a date of birth.'
+        : '<b style="color:var(--no)">Refused.</b> check(' + name + ') returned false for ' + label +
+          ', so the shop refused the ' + shelf + ' item. It learns nothing else about the wallet.';
     } catch (err){
       out.className = 'out';
       out.textContent = 'The read failed: ' + err.message;
@@ -1745,10 +1760,20 @@ pre.cmd{white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5;padding:1
   $('rappBuy').addEventListener('click', function(){
     var w = state.account && state.account.walletCAddr;
     if (!w) return;
-    rappCheck(w, 'your wallet');
+    rappCheck(w, 'your wallet', 1, '18+');
   });
-  $('rappOther').addEventListener('click', function(){
-    rappCheck(UNKNOWN_WALLET, 'a wallet that never verified');
+  $('rappBuy21').addEventListener('click', function(){
+    var w = state.account && state.account.walletCAddr;
+    if (!w) return;
+    rappCheck(w, 'your wallet', 2, '21+');
+  });
+  $('rappOther').addEventListener('click', async function(){
+    try {
+      var Sdk = await loadStellarSdk();
+      rappCheck(freshWallet(Sdk), 'a wallet that never verified', 1, '18+');
+    } catch (err){
+      $('rappOut').textContent = 'The read failed: ' + err.message;
+    }
   });
 
   /* ---------------- buy USDC (anchor on-ramp) ---------------- */
