@@ -122,40 +122,6 @@ tr.us td{color:var(--ivory);background:rgba(142,42,58,.11)}
 </section>
 
 <section class="slide">
-  <h3>The demo, in ninety seconds</h3>
-  <h2>The judge decides what the chain learns.</h2>
-  <ul>
-    <li>Register, fill the KYC wizard. The provider is mocked; everything after it is real.</li>
-    <li>A <b>passkey smart wallet</b> is deployed on testnet. It is the subject of everything that follows.</li>
-    <li><b>Tick which claims to disclose.</b> That choice changes what the contract records: the same
-      person, same credential, writes <span class="mono">claims: 7</span> or <span class="mono">5</span>.</li>
-    <li>Search the proof for your own birth date in four encodings. <b class="yes">Nothing.</b>
-      Search <span class="mono">over18=true</span>. <b class="yes">Found.</b></li>
-    <li>Read the record back <b>from your own browser</b> over public RPC. The server is not in that path.</li>
-    <li>An age-gated shop buys on the 18+ shelf and <b class="nope">refuses</b> the 21+ shelf, because
-      that claim was never disclosed.</li>
-  </ul>
-</section>
-
-<section class="slide">
-  <h3>Architecture</h3>
-  <div class="flow">browser (portal)            demo server                     Stellar testnet
-─────────────────           ──────────────────────          ─────────────────
-wizard  ──/api──▶  onboarding pipeline
-                   │  POST /v1/session ─────▶  <b>gateway-http</b> (loopback)
-                   │  KYC verdict (mock)       sessions, claim derivation
-                   │  POST /v1/credentials/issue ─▶ <b>@stellaronramp/gateway</b>
-                   │        ◀── credential + salt     BBS+ issuance, status list
-                   │  holder store (credential, salt)
-                   │  prove()  ◀── <b>@stellaronramp/identity</b>
-                   │  attest_bbs ── <b>@stellaronramp/sdk</b> ──▶ <b>kyc-gate</b> ──▶ <b>kyc-registry</b>
-                   │                                        verify pairing, write record
-dashboard ◀── simulateTransaction (check, claim_record) ────▶ <b>kyc-gate</b>
-shop / SEP-57 adapter ─────────────────────────────────────▶ <b>trex-wrap</b> ──▶ kyc-gate.check
-anchor (SEP-10/12/38/6) ◀── TRY → USDC ────────────────────▶ testnet USDC</div>
-</section>
-
-<section class="slide">
   <h3>Why this costs what it costs</h3>
   <h2>Verify once, then read forever.</h2>
   <div class="figs">
